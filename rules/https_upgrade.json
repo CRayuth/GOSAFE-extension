@@ -1,0 +1,25 @@
+[
+  {
+    "id": 1,
+    "priority": 10,
+    "action": { "type": "upgradeScheme" },
+    "condition": {
+      "urlFilter": "|http://*",
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "stylesheet",
+        "script",
+        "image",
+        "font",
+        "object",
+        "xmlhttprequest",
+        "ping",
+        "media",
+        "websocket",
+        "other"
+      ],
+      "excludedRequestDomains": ["localhost"]
+    }
+  }
+]

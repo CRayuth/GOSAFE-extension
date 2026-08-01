@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GOSAFE adblock</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="popup.css" />
+    <script src="popup-boot.js"></script>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand-wrap" id="brandWrap">
+          <button id="navBack" type="button" class="icon-btn nav-back" title="Back" aria-label="Back to home" hidden>
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          <img class="brand-logo" id="brandLogo" src="../icons/default_logo.png" alt="GOSAFE adblock" width="28" height="28" />
+          <strong class="page-title" id="pageTitle" hidden>Activity</strong>
+        </div>
+        <div class="top-actions">
+          <button id="themeToggle" type="button" class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode">
+            <i class="fa-regular fa-moon" id="themeIcon"></i>
+          </button>
+          <button id="actionClear" type="button" class="icon-btn" title="Clear" aria-label="Clear">
+            <i class="fa-regular fa-trash-can" id="actionClearIcon"></i>
+          </button>
+          <button id="navLog" type="button" class="icon-btn" title="Activity" aria-label="Open activity">
+            <i class="fa-solid fa-chart-simple"></i>
+          </button>
+        </div>
+      </header>
+
+      <div id="pageHome" class="page is-active">
+      <section class="ua-card" id="uaCard">
+        <div class="ua-top">
+          <span class="ua-badge" aria-hidden="true">
+            <i class="fa-solid fa-user-secret"></i>
+          </span>
+          <div class="ua-copy">
+            <strong>User-Agent</strong>
+            <small id="uaSummary">Random fingerprint</small>
+          </div>
+          <button
+            id="uaRenew"
+            type="button"
+            class="icon-btn ua-renew"
+            title="Renew User-Agent"
+            aria-label="Renew User-Agent"
+          >
+            <i class="fa-solid fa-shuffle"></i>
+          </button>
+          <label class="ua-switch" title="Toggle random User-Agent" for="featRandomUa">
+            <input id="featRandomUa" type="checkbox" />
+            <span class="mini-switch"></span>
+          </label>
+        </div>
+        <button id="openUaOptions" type="button" class="ua-preview" title="Open User-Agent settings">
+          <code id="uaPreview">Loading…</code>
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </section>
+
+      <section class="trust-card" id="trustCard" hidden>
+        <div class="trust-top">
+          <span class="trust-badge" id="trustBadge">—</span>
+          <div class="trust-copy">
+            <strong>GOSAFE Security Score</strong>
+            <small id="trustHost">—</small>
+          </div>
+        </div>
+        <ul class="trust-checks" id="trustChecks"></ul>
+        <div class="pg-block" id="phishGuardBlock">
+          <div class="pg-row">
+            <button id="phishGuardScan" type="button" class="pg-scan-btn">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+              Scan with PhishGuard
+            </button>
+            <span class="pg-verdict" id="phishGuardVerdict" hidden></span>
+          </div>
+          <input
+            id="phishGuardApiKey"
+            class="pg-key"
+            type="password"
+            placeholder="PhishGuard API key"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <p class="pg-hint" id="phishGuardHint">
+            Free key:
+            <a href="https://www.phishguard.co.in/developer" target="_blank" rel="noopener noreferrer"
+              >phishguard.co.in/developer</a
+            >
+          </p>
+        </div>
+      </section>
+
+      <button id="privacyModeBtn" type="button" class="privacy-cta">
+        <span class="nav-left">
+          <i class="fa-solid fa-user-shield"></i>
+          <span class="nav-copy">
+            <strong id="privacyModeLabel">Make me private</strong>
+            <small id="privacyModeHint">Trackers, fingerprint, HTTPS, clear cookies</small>
+          </span>
+        </span>
+        <i class="fa-solid fa-chevron-right row-chevron"></i>
+      </button>
+
+      <section class="vpn-card" id="vpnCard">
+        <div class="vpn-top">
+          <span class="ua-badge" aria-hidden="true"><i class="fa-solid fa-network-wired"></i></span>
+          <div class="ua-copy">
+            <strong>Proxy VPN-lite</strong>
+            <small id="vpnHint">Route Chrome via SOCKS/HTTP proxy</small>
+          </div>
+          <label class="ua-switch" title="Toggle proxy" for="vpnEnabled">
+            <input id="vpnEnabled" type="checkbox" />
+            <span class="mini-switch"></span>
+          </label>
+        </div>
+        <div class="vpn-fields">
+          <select id="vpnScheme" aria-label="Proxy scheme">
+            <option value="socks5">SOCKS5</option>
+            <option value="socks4">SOCKS4</option>
+            <option value="http">HTTP</option>
+            <option value="https">HTTPS</option>
+          </select>
+          <input id="vpnHost" type="text" placeholder="proxy.host" autocomplete="off" spellcheck="false" />
+          <input id="vpnPort" type="number" min="1" max="65535" placeholder="1080" />
+        </div>
+        <p class="vpn-note">Not a full WireGuard VPN — use your VPN app’s local SOCKS port, or any proxy you trust.</p>
+      </section>
+
+      <section class="nav-block">
+        <label class="nav-row is-active power-row" for="toggle">
+          <span class="nav-left">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span class="nav-copy">
+              <strong>Protection</strong>
+              <small id="statusText">Active</small>
+            </span>
+          </span>
+          <span class="switch">
+            <input id="toggle" type="checkbox" checked />
+            <span class="slider"></span>
+          </span>
+        </label>
+
+        <button id="pauseSite" type="button" class="nav-row">
+          <span class="nav-left">
+            <i class="fa-solid fa-pause" id="pauseSiteIcon"></i>
+            <span class="nav-copy">
+              <strong id="pauseSiteLabel">Pause here</strong>
+              <small id="siteHost">—</small>
+            </span>
+          </span>
+          <i class="fa-solid fa-chevron-right row-chevron"></i>
+        </button>
+
+        <div class="site-modes" id="siteModes" role="group" aria-label="Site rule">
+          <button type="button" class="site-mode is-active" data-mode="default">Auto</button>
+          <button type="button" class="site-mode" data-mode="allow" title="Trust this site — trackers still blocked & logged">Whitelist</button>
+          <button type="button" class="site-mode" data-mode="block">Block</button>
+        </div>
+        <div class="temp-allow" id="tempAllow" hidden>
+          <button type="button" class="temp-allow-btn" data-mins="10">Allow 10m</button>
+          <button type="button" class="temp-allow-btn" data-mins="60">Allow 1h</button>
+          <button type="button" class="temp-allow-btn is-clear" data-mins="0" id="tempAllowClear" hidden>Clear temp</button>
+        </div>
+        <p class="temp-allow-hint" id="tempAllowHint" hidden></p>
+        <label class="nav-row feature site-override" id="siteCosmeticsRow" hidden>
+          <span class="nav-left">
+            <i class="fa-solid fa-eye-slash"></i>
+            <span class="nav-copy">
+              <strong>Cosmetics here</strong>
+              <small>Override hide-ads CSS on this site</small>
+            </span>
+          </span>
+          <input id="siteFeatCosmetics" type="checkbox" checked />
+          <span class="mini-switch"></span>
+        </label>
+        <p class="site-watch" id="siteWatch" hidden>
+          <i class="fa-solid fa-eye" aria-hidden="true"></i>
+          <span id="siteWatchText">Whitelisted — still monitoring network &amp; bad behavior</span>
+        </p>
+
+        <button id="pickElement" type="button" class="nav-row">
+          <span class="nav-left">
+            <i class="fa-solid fa-eye-dropper"></i>
+            <span class="nav-copy">
+              <strong>Hide element</strong>
+              <small>Pick something on this page</small>
+            </span>
+          </span>
+          <i class="fa-solid fa-chevron-right row-chevron"></i>
+        </button>
+        <div class="custom-hides" id="customHides" hidden>
+          <div class="custom-hides-head">
+            <span>Hidden here</span>
+            <button id="clearCustomHides" type="button" class="text-btn" hidden>Clear all</button>
+          </div>
+          <ul class="custom-hide-list" id="customHideList"></ul>
+        </div>
+      </section>
+
+      <button id="openSecurity" type="button" class="nav-row">
+        <span class="nav-left">
+          <i class="fa-solid fa-user-shield"></i>
+          <span class="nav-copy">
+            <strong>Security Assistant</strong>
+            <small>Watch · attacks · firewall · developer</small>
+          </span>
+        </span>
+        <i class="fa-solid fa-chevron-right row-chevron"></i>
+      </button>
+
+      <section class="stats-block">
+        <div class="stat-pill">
+          <i class="fa-solid fa-ban"></i>
+          <div>
+            <span class="stat-label">Blocked</span>
+            <strong id="blockedCount">0</strong>
+          </div>
+        </div>
+        <div class="stat-pill profile-pill">
+          <i class="fa-solid fa-sliders"></i>
+          <div class="profile-hover" id="profileHover">
+            <span class="stat-label">Mode</span>
+            <button
+              type="button"
+              class="profile-trigger"
+              id="profileTrigger"
+              aria-haspopup="true"
+              aria-expanded="false"
+              title="Choose Speed, Light, or Advanced"
+            >
+              <strong id="modeText">Light</strong>
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </button>
+            <div class="profile-menu" id="profileMenu" role="menu" hidden>
+              <button type="button" role="menuitem" data-profile="speed" title="Fastest — minimal page work">
+                Speed
+              </button>
+              <button type="button" role="menuitem" data-profile="light" title="Balanced — recommended">
+                Light
+              </button>
+              <button type="button" role="menuitem" data-profile="advanced" title="Max hiding &amp; spoofing">
+                Advanced
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <p class="profile-hint" id="profileHint">Balanced blocking with lighter page work</p>
+
+      <section class="section" id="featuresSection">
+        <button type="button" class="section-label" id="featuresToggle" aria-expanded="true">
+          <span>Features</span>
+          <i class="fa-solid fa-chevron-down section-chevron" aria-hidden="true"></i>
+        </button>
+
+        <div class="feature-list" id="featureList">
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-regular fa-eye-slash"></i>
+              <span class="nav-copy">
+                <strong>Cosmetic filters</strong>
+                <small>Hide ads, cookies, popups</small>
+              </span>
+            </span>
+            <input id="featCosmetics" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-regular fa-hand-pointer"></i>
+              <span class="nav-copy">
+                <strong>Click-jack guard</strong>
+                <small>Stop overlay hijacks</small>
+              </span>
+            </span>
+            <input id="featClickGuard" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-brands fa-youtube"></i>
+              <span class="nav-copy">
+                <strong>YouTube skip</strong>
+                <small>Skip in-player ads</small>
+              </span>
+            </span>
+            <input id="featYoutube" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-brands fa-spotify"></i>
+              <span class="nav-copy">
+                <strong>Spotify mute</strong>
+                <small>Mute web player ads</small>
+              </span>
+            </span>
+            <input id="featSpotify" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-brands fa-medium"></i>
+              <span class="nav-copy">
+                <strong>Medium reader</strong>
+                <small>Unlock member stories</small>
+              </span>
+            </span>
+            <input id="featMedium" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-door-open"></i>
+              <span class="nav-copy">
+                <strong>Peek without login</strong>
+                <small>Skip signup / login walls</small>
+              </span>
+            </span>
+            <input id="featLoginWall" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-regular fa-file"></i>
+              <span class="nav-copy">
+                <strong>Download shield</strong>
+                <small>Block risky installs</small>
+              </span>
+            </span>
+            <input id="featDownloads" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-lock"></i>
+              <span class="nav-copy">
+                <strong>HTTPS upgrade</strong>
+                <small>Force secure connections</small>
+              </span>
+            </span>
+            <input id="featHttps" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-regular fa-clipboard"></i>
+              <span class="nav-copy">
+                <strong>Clipboard guard</strong>
+                <small>Stop crypto address swaps</small>
+              </span>
+            </span>
+            <input id="featClipboard" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-code"></i>
+              <span class="nav-copy">
+                <strong>Scriptlets</strong>
+                <small>Bypass anti-adblock traps</small>
+              </span>
+            </span>
+            <input id="featScriptlets" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-network-wired"></i>
+              <span class="nav-copy">
+                <strong>WebRTC shield</strong>
+                <small>Reduce IP leak risk</small>
+              </span>
+            </span>
+            <input id="featWebrtc" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-regular fa-bell-slash"></i>
+              <span class="nav-copy">
+                <strong>Permission guard</strong>
+                <small>Block notify / cam / mic spam</small>
+              </span>
+            </span>
+            <input id="featPermissions" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-shield-virus"></i>
+              <span class="nav-copy">
+                <strong>Phishing guard</strong>
+                <small>Warn on risky lookalike sites</small>
+              </span>
+            </span>
+            <input id="featPhishing" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-fingerprint"></i>
+              <span class="nav-copy">
+                <strong>Fingerprint shield</strong>
+                <small>Canvas / audio / WebGL noise</small>
+              </span>
+            </span>
+            <input id="featFingerprint" type="checkbox" />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-cloud-arrow-down"></i>
+              <span class="nav-copy">
+                <strong>List auto-update</strong>
+                <small>Refresh supplemental blocks daily</small>
+              </span>
+            </span>
+            <input id="featListUpdate" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-cookie-bite"></i>
+              <span class="nav-copy">
+                <strong>Cookie decline</strong>
+                <small>Auto-click Reject / essential only</small>
+              </span>
+            </span>
+            <input id="featCookie" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-window-restore"></i>
+              <span class="nav-copy">
+                <strong>Popup blocker</strong>
+                <small>Stop window.open spam / tab-unders</small>
+              </span>
+            </span>
+            <input id="featPopup" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-shield-halved"></i>
+              <span class="nav-copy">
+                <strong>Anti-adblock bypass</strong>
+                <small>Soften “disable adblocker” walls</small>
+              </span>
+            </span>
+            <input id="featAntiadblock" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-circle-play"></i>
+              <span class="nav-copy">
+                <strong>Block autoplay</strong>
+                <small>Pause noisy auto-playing media</small>
+              </span>
+            </span>
+            <input id="featAutoplay" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-user-secret"></i>
+              <span class="nav-copy">
+                <strong>Strict tracking</strong>
+                <small>Harder 3rd-party cookies &amp; referrers</small>
+              </span>
+            </span>
+            <input id="featStrict" type="checkbox" />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-coins"></i>
+              <span class="nav-copy">
+                <strong>Miner block</strong>
+                <small>Block crypto-miner scripts</small>
+              </span>
+            </span>
+            <input id="featMiner" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-biohazard"></i>
+              <span class="nav-copy">
+                <strong>Malware / scam warn</strong>
+                <small>Extra warnings for bait downloads &amp; scams</small>
+              </span>
+            </span>
+            <input id="featMalware" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-volume-xmark"></i>
+              <span class="nav-copy">
+                <strong>Quiet mode</strong>
+                <small>No banners, tips, or toggle noise</small>
+              </span>
+            </span>
+            <input id="featQuiet" type="checkbox" />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-brain"></i>
+              <span class="nav-copy">
+                <strong>Adaptive learning</strong>
+                <small>Auto-hide patterns you dismiss often</small>
+              </span>
+            </span>
+            <input id="featAdaptive" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-shield-heart"></i>
+              <span class="nav-copy">
+                <strong>Trust score</strong>
+                <small>Show safety score &amp; warn on low trust</small>
+              </span>
+            </span>
+            <input id="featTrust" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-binoculars"></i>
+              <span class="nav-copy">
+                <strong>Security watch</strong>
+                <small>Live attack &amp; page watching</small>
+              </span>
+            </span>
+            <input id="featSecWatch" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-graduation-cap"></i>
+              <span class="nav-copy">
+                <strong>Learn trackers</strong>
+                <small>Badger-style block after 3 sites</small>
+              </span>
+            </span>
+            <input id="featTrackerLearn" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-hand"></i>
+              <span class="nav-copy">
+                <strong>GPC + Do Not Track</strong>
+                <small>Send privacy preference headers</small>
+              </span>
+            </span>
+            <input id="featPrivacySignals" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+        </div>
+      </section>
+
+      <div class="popup-footer">
+        <p id="siteHint" class="footer-hint">Checking site…</p>
+        <div class="footer-meta">
+          <span id="versionText" class="version">v—</span>
+          <a
+            id="githubLink"
+            class="github-link"
+            href="https://github.com/CRayuth"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="GitHub — CRayuth"
+            aria-label="Open GitHub profile"
+          >
+            <i class="fa-brands fa-github" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+      </div>
+
+      <div id="pageLog" class="page" hidden>
+        <div class="kpi-grid" id="kpiGrid" aria-label="Protection KPIs">
+          <div class="kpi-card">
+            <span class="kpi-label">Blocked</span>
+            <strong id="kpiBlocked">0</strong>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Guards</span>
+            <strong id="kpiGuards">0</strong>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Security</span>
+            <strong id="kpiSecurity">0</strong>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Features</span>
+            <strong id="kpiFeatures">0/0</strong>
+          </div>
+        </div>
+
+        <div class="chart-card" id="chartCard">
+          <div class="chart-head">
+            <span>Top blocked hosts</span>
+          </div>
+          <div id="logChart" class="log-chart" role="img" aria-label="Block chart"></div>
+        </div>
+
+        <div class="feat-strip" id="featStrip" aria-label="Feature status"></div>
+
+        <div class="log-filters" id="logFilters" role="tablist" aria-label="Event filters">
+          <button type="button" class="log-filter is-active" data-filter="all">All</button>
+          <button type="button" class="log-filter" data-filter="network">Network</button>
+          <button type="button" class="log-filter" data-filter="guards">Guards</button>
+          <button type="button" class="log-filter" data-filter="security">Security</button>
+          <button type="button" class="log-filter" data-filter="system">System</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="siem-table" aria-label="Activity table">
+            <thead>
+              <tr>
+                <th>Host / event</th>
+                <th>From</th>
+                <th>×</th>
+                <th>Age</th>
+              </tr>
+            </thead>
+            <tbody id="logTableBody"></tbody>
+          </table>
+          <p id="logEmpty" class="log-empty" hidden>Waiting for real blocks — allowlisted sites are ignored.</p>
+        </div>
+        <div id="logList" class="log-list" hidden></div>
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

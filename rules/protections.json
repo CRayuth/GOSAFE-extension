@@ -1,0 +1,361 @@
+[
+  {
+    "id": 1,
+    "priority": 50,
+    "action": { "type": "block" },
+    "condition": {
+      "requestDomains": [
+        "s.click.aliexpress.com",
+        "click.aliexpress.com",
+        "s.click.taobao.com",
+        "click.taobao.com",
+        "s.click.tmall.com",
+        "aliyunyun.com",
+        "aliclick.shop",
+        "ae-rus.net"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "media",
+        "websocket",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 50,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||aliexpress.com/e/",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 50,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "s.click.aliexpress.com",
+      "resourceTypes": ["main_frame", "sub_frame", "script", "xmlhttprequest", "ping", "other"]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 50,
+    "action": { "type": "block" },
+    "condition": {
+      "requestDomains": [
+        "1xlite-04259.pro",
+        "1xbet.com",
+        "1xbet.kz",
+        "1xbet.ng",
+        "1xbet.ke",
+        "1xstavka.ru",
+        "1xbet-affiliate.com",
+        "refpa.top",
+        "refpaiwqns.top",
+        "mostbet.com",
+        "melbet.com",
+        "linebet.com",
+        "betwinner.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "media",
+        "websocket",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 50,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||1xlite-",
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "xmlhttprequest",
+        "ping",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 6,
+    "priority": 50,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "1xlite-",
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "xmlhttprequest",
+        "ping",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 7,
+    "priority": 40,
+    "action": { "type": "block" },
+    "condition": {
+      "requestDomains": [
+        "popads.net",
+        "popadscdn.net",
+        "propellerads.com",
+        "propellerclick.com",
+        "adsterra.com",
+        "trafficjunky.com",
+        "exoclick.com",
+        "juicyads.com",
+        "clickadu.com",
+        "hilltopads.com",
+        "pushance.com",
+        "pushnami.com",
+        "getwaitlist.com",
+        "tsyndicate.com",
+        "trafficstars.com",
+        "onclickalgo.com",
+        "onclicksuper.com",
+        "onclkds.com",
+        "ouo.io",
+        "ouo.press",
+        "bc.vc",
+        "adfly.com",
+        "adf.ly"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "media",
+        "websocket",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 8,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".apk",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 9,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".exe",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 10,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".msi",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 11,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".dmg",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 12,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".scr",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 13,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".bat",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 14,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".cmd",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 15,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".hta",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 16,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".vbs",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 17,
+    "priority": 60,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".iso",
+      "domainType": "thirdParty",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 19,
+    "priority": 50,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "Allianceid=",
+      "requestDomains": ["trip.com", "www.trip.com", "uk.trip.com", "jp.trip.com", "sg.trip.com"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping", "other"]
+    }
+  },
+  {
+    "id": 20,
+    "priority": 50,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "trip_sub1=",
+      "requestDomains": ["trip.com", "www.trip.com", "uk.trip.com", "jp.trip.com", "sg.trip.com"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping", "other"]
+    }
+  },
+  {
+    "id": 21,
+    "priority": 50,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "?SID=",
+      "requestDomains": ["trip.com", "www.trip.com", "uk.trip.com", "jp.trip.com", "sg.trip.com"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping", "other"]
+    }
+  },
+  {
+    "id": 30,
+    "priority": 80,
+    "action": { "type": "block" },
+    "condition": {
+      "requestDomains": [
+        "google-analytics.com",
+        "googletagmanager.com",
+        "googleadservices.com",
+        "pagead2.googlesyndication.com",
+        "js.sentry-cdn.com",
+        "browser.sentry-cdn.com",
+        "cdn.ravenjs.com",
+        "browser-intake.com",
+        "bugsnag.com",
+        "d2wy8f7a9ursnm.cloudfront.net",
+        "static.hotjar.com",
+        "script.hotjar.com"
+      ],
+      "resourceTypes": [
+        "script",
+        "xmlhttprequest",
+        "image",
+        "ping",
+        "sub_frame",
+        "websocket",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 31,
+    "priority": 80,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||adblock-tester.com/banners/",
+      "resourceTypes": ["script", "image", "xmlhttprequest", "media", "object", "other"]
+    }
+  },
+  {
+    "id": 35,
+    "priority": 75,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": ".swf",
+      "resourceTypes": ["object", "other", "media"]
+    }
+  },
+  {
+    "id": 32,
+    "priority": 70,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "/pagead.js",
+      "resourceTypes": ["script", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 33,
+    "priority": 70,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "/ads.js",
+      "resourceTypes": ["script", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 34,
+    "priority": 70,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "/advertisement.js",
+      "resourceTypes": ["script", "xmlhttprequest", "other"]
+    }
+  }
+]

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Suspicious site blocked — GOSAFE adblock</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f4f7fc;
+        --panel: #fff;
+        --text: #0a1f45;
+        --dim: #4a5f80;
+        --line: #d0dae8;
+        --danger: #b71c1c;
+        --brand: #0058d0;
+        --brand-deep: #002870;
+        --font: "Roboto", "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: var(--font);
+        background:
+          radial-gradient(900px 400px at 50% -10%, rgba(0, 88, 208, 0.12), transparent 55%),
+          radial-gradient(700px 360px at 100% 10%, rgba(183, 28, 28, 0.06), transparent 50%),
+          var(--bg);
+        color: var(--text);
+      }
+      .card {
+        width: min(520px, calc(100% - 32px));
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 28px 24px;
+      }
+      h1 { margin: 0 0 8px; font-size: 22px; letter-spacing: -0.02em; }
+      p { margin: 0 0 12px; color: var(--dim); line-height: 1.45; font-size: 14px; }
+      code {
+        display: block;
+        padding: 10px 12px;
+        background: #f0f0f0;
+        border-radius: 8px;
+        font-size: 12px;
+        word-break: break-all;
+        margin: 12px 0 16px;
+      }
+      .meta { font-size: 12px; color: var(--dim); margin-bottom: 18px; }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      button, a.btn {
+        appearance: none;
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      .primary { background: var(--text); color: #fff; }
+      .ghost { background: #eee; color: var(--text); }
+      .danger { color: var(--danger); font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Suspicious site blocked</h1>
+      <p class="danger">This page looks like a phishing or brand-impersonation attempt.</p>
+      <p>GOSAFE adblock scored this URL as risky using local heuristics (no browsing history is sent to us).</p>
+      <code id="target">—</code>
+      <div class="meta" id="meta">Score —</div>
+      <div class="actions">
+        <button type="button" class="primary" id="goBack">Go back</button>
+        <button type="button" class="ghost" id="allowOnce">Continue anyway</button>
+        <a class="btn ghost" id="report" href="#" target="_blank" rel="noreferrer">Learn about phishing</a>
+      </div>
+    </main>
+    <script src="phishing.js"></script>
+  </body>
+</html>

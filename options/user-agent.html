@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Random User-Agent — GOSAFE adblock</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="user-agent.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div class="hero-brand">
+          <img id="brandLogo" src="../icons/default_logo.png" alt="" width="36" height="36" />
+          <div>
+            <h1>Random User-Agent</h1>
+            <p>Spoof the browser fingerprint sent to websites</p>
+          </div>
+        </div>
+        <label class="master" for="uaEnabled">
+          <span>Enabled</span>
+          <span class="switch">
+            <input id="uaEnabled" type="checkbox" checked />
+            <span class="slider"></span>
+          </span>
+        </label>
+      </header>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Current agent</h2>
+          <button id="renewBtn" type="button" class="btn">
+            <i class="fa-solid fa-shuffle"></i>
+            Renew
+          </button>
+        </div>
+        <code id="currentUa" class="ua-box">Loading…</code>
+        <p id="updatedAt" class="meta">—</p>
+      </section>
+
+      <section class="card">
+        <h2>Browsers</h2>
+        <p class="hint">Which browsers can appear in the random pool</p>
+        <div class="checks">
+          <label><input id="brChrome" type="checkbox" checked /> Chrome</label>
+          <label><input id="brFirefox" type="checkbox" checked /> Firefox</label>
+          <label><input id="brEdge" type="checkbox" checked /> Edge</label>
+          <label><input id="brSafari" type="checkbox" /> Safari</label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Operating systems</h2>
+        <p class="hint">macOS spoofing can break Ctrl shortcuts on some sites</p>
+        <div class="checks">
+          <label><input id="osWindows" type="checkbox" checked /> Windows</label>
+          <label><input id="osLinux" type="checkbox" checked /> Linux</label>
+          <label><input id="osMac" type="checkbox" /> macOS</label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Rotation</h2>
+        <label class="field">
+          <span>Auto-renew every (minutes)</span>
+          <input id="renewMins" type="number" min="0" max="1440" step="1" value="10" />
+        </label>
+        <p class="hint">Set to 0 to disable timed rotation</p>
+        <label class="row-check">
+          <input id="renewStartup" type="checkbox" checked />
+          <span>Renew on browser startup</span>
+        </label>
+      </section>
+
+      <p class="footnote">
+        Inspired by
+        <a href="https://github.com/tarampampam/random-user-agent" target="_blank" rel="noreferrer"
+          >random-user-agent</a
+        >. Spoofs the HTTP <code>User-Agent</code> header and JavaScript
+        <code>navigator.userAgent</code>.
+      </p>
+    </div>
+    <script src="user-agent.js"></script>
+  </body>
+</html>

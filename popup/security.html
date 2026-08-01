@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GOSAFE Security Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="security.css" />
+    <script src="popup-boot.js"></script>
+  </head>
+  <body>
+    <div class="sec-shell">
+      <header class="sec-top">
+        <div class="sec-brand">
+          <img id="brandLogo" src="../icons/default_logo.png" alt="" width="28" height="28" />
+          <div>
+            <strong>GOSAFE Security Assistant</strong>
+            <small id="secHost">Watching…</small>
+          </div>
+        </div>
+        <div class="sec-actions">
+          <label class="sec-dev-toggle" title="Developer Security Mode">
+            <input id="devMode" type="checkbox" />
+            <span>Dev mode</span>
+          </label>
+          <button id="secRefresh" type="button" class="sec-btn" title="Rescan">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+          <button id="secClose" type="button" class="sec-btn" title="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </header>
+
+      <nav class="sec-tabs" role="tablist">
+        <button type="button" class="sec-tab is-active" data-tab="watch" role="tab">Watch</button>
+        <button type="button" class="sec-tab" data-tab="attacks" role="tab">Attacks</button>
+        <button type="button" class="sec-tab" data-tab="firewall" role="tab">Firewall</button>
+        <button type="button" class="sec-tab" data-tab="developer" role="tab" id="tabDeveloper" hidden>
+          Developer
+        </button>
+      </nav>
+
+      <main class="sec-main">
+        <section id="panelWatch" class="sec-panel is-active" role="tabpanel">
+          <div class="sec-alert" id="watchHero" hidden>
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+              <strong id="watchHeroTitle">Warning</strong>
+              <p id="watchHeroBody"></p>
+            </div>
+          </div>
+          <div class="sec-card">
+            <h2>Live page watch</h2>
+            <p class="sec-muted">Forms, brand lookalikes, and social-engineering patterns on this tab.</p>
+            <ul class="sec-list" id="watchList"></ul>
+            <p class="sec-empty" id="watchEmpty">No active warnings on this page.</p>
+          </div>
+        </section>
+
+        <section id="panelAttacks" class="sec-panel" role="tabpanel" hidden>
+          <div class="sec-card">
+            <h2>Real-time attack detection</h2>
+            <p class="sec-muted">XSS probes, drive-by downloads, cryptojacking, and fake update lures.</p>
+            <ul class="sec-list" id="attackList"></ul>
+            <p class="sec-empty" id="attackEmpty">No attack signals blocked on this tab yet.</p>
+          </div>
+        </section>
+
+        <section id="panelFirewall" class="sec-panel" role="tabpanel" hidden>
+          <div class="sec-card">
+            <h2>Browser privacy firewall</h2>
+            <p class="sec-hostline">
+              Website: <strong id="fwHost">—</strong>
+            </p>
+            <ul class="sec-fw" id="fwList">
+              <li class="is-ok"><span>Main website</span><em>✓</em></li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="panelDeveloper" class="sec-panel" role="tabpanel" hidden>
+          <div class="sec-card">
+            <h2>Developer security mode</h2>
+            <p class="sec-muted">Third-party scripts, cookies, trackers, and common secret leaks in page source.</p>
+            <ul class="sec-list sec-list-dev" id="devList"></ul>
+            <p class="sec-empty" id="devEmpty">Enable Dev mode and open a site to scan.</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="sec-foot">
+        <span id="secVersion">v—</span>
+        <span id="secStatus">Idle</span>
+      </footer>
+    </div>
+    <script src="security.js"></script>
+  </body>
+</html>

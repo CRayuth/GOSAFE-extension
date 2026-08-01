@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GOSAFE adblock — Privacy Policy</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+        line-height: 1.5;
+      }
+      body {
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin-top: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>GOSAFE adblock Privacy Policy</h1>
+    <p>Last updated: August 1, 2026</p>
+
+    <h2>What the extension does</h2>
+    <p>
+      GOSAFE adblock blocks ads, trackers, and some phishing/malware patterns in your browser. It also
+      offers optional helpers (YouTube/Spotify, cosmetics, HTTPS upgrade, User-Agent spoofing, and
+      similar protections).
+    </p>
+
+    <h2>Data collection</h2>
+    <p>
+      <strong>We do not collect, sell, or transmit your browsing history to our servers.</strong>
+      Filtering and settings run locally in your browser.
+    </p>
+    <ul>
+      <li>
+        Settings, site rules, custom hide selectors, activity log, and User-Agent preferences are
+        stored in <code>chrome.storage.local</code> on your device.
+      </li>
+      <li>
+        Optional filter-list auto-update may download public blocklists from third-party mirrors you
+        already rely on for ad blocking. Those requests do not include a personal account.
+      </li>
+      <li>
+        Optional <strong>Scan with PhishGuard</strong> (when you click it and supply your own API key)
+        sends the current tab URL to
+        <a href="https://www.phishguard.co.in/" rel="noopener noreferrer">PhishGuard</a>
+        for a cloud phishing analysis. This does not run automatically on every page visit.
+      </li>
+      <li>
+        The extension needs broad site access (<code>&lt;all_urls&gt;</code>) to apply network and
+        page protections wherever you browse.
+      </li>
+    </ul>
+
+    <h2>Permissions</h2>
+    <p>
+      Permissions such as storage, tabs, declarativeNetRequest, downloads, privacy, and alarms are
+      used only to implement the features described in the store listing (blocking, optional
+      download/WebRTC/UA controls, and local activity stats).
+    </p>
+
+    <h2>Filter lists</h2>
+    <p>
+      Network and cosmetic rules are built from public community lists (including EasyList,
+      EasyPrivacy, and lists published by the
+      <a href="https://github.com/uBlockOrigin/uAssets">uBlock Origin uAssets</a> project).
+      Those lists are third-party data; this extension is not affiliated with uBlock Origin.
+    </p>
+
+    <h2>Contact</h2>
+    <p>Replace this line with your support email before publishing.</p>
+  </body>
+</html>

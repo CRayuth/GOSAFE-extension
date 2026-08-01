@@ -1,0 +1,11 @@
+_metadata/
+dist/
+*.zip
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+.cursor/
+node_modules/
+extension-cache/
+*.map
