@@ -58,6 +58,7 @@
     importScripts(
       "ua-generator.js",
       "lib/ds.js",
+      "lib/phishtrap-signals.js",
       "lib/phishing.js",
       "lib/site-rules.js",
       "lib/custom-cosmetics.js",
@@ -369,21 +370,86 @@
     }
   }
 
-  /** WebRTC IP leak control via chrome.privacy. */
+  /** WebRTC IP leak control via chrome.privacy — yields if another extension owns the setting. */
   class WebRtcPrivacyController {
+    constructor() {
+      this._last = {
+        ok: true,
+        applied: false,
+        conflict: false,
+        levelOfControl: "",
+        error: "",
+      };
+    }
+
+    get status() {
+      return { ...this._last };
+    }
+
     /**
      * @param {boolean} enabled
      * @param {boolean} featureOn
      */
     async apply(enabled, featureOn) {
       const api = chrome.privacy?.network?.webRTCIPHandlingPolicy;
-      if (!api) return;
+      if (!api) {
+        this._last = {
+          ok: false,
+          applied: false,
+          conflict: false,
+          levelOfControl: "unavailable",
+          error: "api_missing",
+        };
+        return this._last;
+      }
       try {
-        const value =
-          enabled && featureOn !== false ? "disable_non_proxied_udp" : "default";
+        const current = await api.get({});
+        const level = String(current?.levelOfControl || "");
+        const wantOn = Boolean(enabled && featureOn !== false);
+
+        if (level === "controlled_by_other_extensions") {
+          this._last = {
+            ok: true,
+            applied: false,
+            conflict: true,
+            levelOfControl: level,
+            error: "other_extension",
+          };
+          return this._last;
+        }
+        if (level === "not_controllable") {
+          this._last = {
+            ok: false,
+            applied: false,
+            conflict: false,
+            levelOfControl: level,
+            error: "not_controllable",
+          };
+          return this._last;
+        }
+
+        const value = wantOn ? "disable_non_proxied_udp" : "default";
         await api.set({ value });
+        this._last = {
+          ok: true,
+          applied: wantOn,
+          conflict: false,
+          levelOfControl: level,
+          error: "",
+        };
+        return this._last;
       } catch (err) {
+        const msg = String(err?.message || err);
+        const conflict = /another|other|conflict|controll/i.test(msg);
         console.warn("GOSAFE adblock WebRTC policy failed:", err);
+        this._last = {
+          ok: false,
+          applied: false,
+          conflict,
+          levelOfControl: "",
+          error: msg.slice(0, 160),
+        };
+        return this._last;
       }
     }
   }
@@ -650,127 +716,6 @@
             ]
           : [],
       });
-    }
-  }
-
-  /**
-   * VPN-lite via chrome.proxy — routes browser traffic through user SOCKS/HTTP proxy.
-   * Not a full WireGuard VPN (needs a system client); this is what MV3 can do.
-   */
-  class VpnProxyController {
-    async getSettings() {
-      const { vpnProxy = null } = await chrome.storage.local.get({ vpnProxy: null });
-      const raw = vpnProxy && typeof vpnProxy === "object" ? vpnProxy : {};
-      return {
-        enabled: Boolean(raw.enabled),
-        scheme: ["socks5", "socks4", "http", "https"].includes(raw.scheme)
-          ? raw.scheme
-          : "socks5",
-        host: String(raw.host || "")
-          .trim()
-          .slice(0, 200),
-        port: Math.max(1, Math.min(65535, Number(raw.port) || 1080)),
-      };
-    }
-
-    async saveSettings(partial) {
-      const cur = await this.getSettings();
-      const next = {
-        ...cur,
-        ...(partial && typeof partial === "object" ? partial : {}),
-      };
-      next.enabled = Boolean(next.enabled);
-      next.scheme = ["socks5", "socks4", "http", "https"].includes(next.scheme)
-        ? next.scheme
-        : "socks5";
-      next.host = String(next.host || "")
-        .trim()
-        .slice(0, 200);
-      next.port = Math.max(1, Math.min(65535, Number(next.port) || 1080));
-      await chrome.storage.local.set({ vpnProxy: next });
-      return next;
-    }
-
-    /**
-     * @param {boolean} protectionOn
-     * @param {{ forceOff?: boolean }} [opts]
-     */
-    async apply(protectionOn, opts = {}) {
-      if (!chrome.proxy?.settings) return { ok: false, error: "proxy_api_missing" };
-      const settings = await this.getSettings();
-      const on = Boolean(protectionOn && settings.enabled && settings.host && !opts.forceOff);
-      try {
-        if (!on) {
-          await chrome.proxy.settings.clear({ scope: "regular" });
-          return { ok: true, enabled: false, settings };
-        }
-        await chrome.proxy.settings.set({
-          value: {
-            mode: "fixed_servers",
-            rules: {
-              singleProxy: {
-                scheme: settings.scheme,
-                host: settings.host,
-                port: settings.port,
-              },
-              bypassList: ["<local>", "localhost", "127.0.0.1", "::1"],
-            },
-          },
-          scope: "regular",
-        });
-        return { ok: true, enabled: true, settings };
-      } catch (err) {
-        console.warn("GOSAFE adblock proxy failed:", err);
-        return { ok: false, error: String(err?.message || err), settings };
-      }
-    }
-  }
-
-  /** Optional PhishGuard cloud URL scan (user-supplied API key). */
-  class PhishGuardSettings {
-    constructor() {
-      this._client = null;
-    }
-
-    _getClient() {
-      if (!this._client && globalThis.AblPhishing?.PhishGuardClient) {
-        this._client = new globalThis.AblPhishing.PhishGuardClient();
-      }
-      return this._client;
-    }
-
-    async getSettings() {
-      const { phishGuard = null } = await chrome.storage.local.get({ phishGuard: null });
-      const raw = phishGuard && typeof phishGuard === "object" ? phishGuard : {};
-      return {
-        apiKey: String(raw.apiKey || "").trim().slice(0, 200),
-        hasKey: Boolean(String(raw.apiKey || "").trim()),
-      };
-    }
-
-    async saveSettings(partial) {
-      const cur = await this.getSettings();
-      const next = {
-        apiKey:
-          partial && typeof partial === "object" && "apiKey" in partial
-            ? String(partial.apiKey || "")
-                .trim()
-                .slice(0, 200)
-            : cur.apiKey,
-      };
-      await chrome.storage.local.set({ phishGuard: { apiKey: next.apiKey } });
-      return { apiKey: next.apiKey, hasKey: Boolean(next.apiKey) };
-    }
-
-    /**
-     * @param {string} url
-     */
-    async scan(url) {
-      const { apiKey } = await this.getSettings();
-      if (!apiKey) return { ok: false, error: "missing_api_key" };
-      const client = this._getClient();
-      if (!client) return { ok: false, error: "client_unavailable" };
-      return client.scan(String(url || ""), apiKey);
     }
   }
 
@@ -1184,7 +1129,6 @@
     await trackerLearner.applyRules(
       status.enabled && status.features.trackerLearn !== false
     );
-    await vpnProxy.apply(status.enabled);
     await tempAllow.apply();
     await userAgent.apply(opts);
     await siteRuleStore.hydrate();
@@ -1557,13 +1501,24 @@
               return;
             }
             const url = String(message.url || "");
+            let host = "";
+            try {
+              host = globalThis.AblDs.HostKey.fromUrl(url) || "";
+            } catch {
+              host = "";
+            }
             const hints = {
               thirdPartyScripts: Number(message.thirdPartyScripts) || 0,
+              listHit: host ? listUpdater.lookup(host) : null,
             };
             const report = globalThis.AblPhishing.TrustScore.evaluate(url, hints);
             sendResponse({ ok: true, ...report });
           });
           return true;
+        }],
+        ["getWebRtcStatus", (_message, sendResponse) => {
+          sendResponse({ ok: true, ...webrtc.status });
+          return false;
         }],
         ["setPrivacyMode", (message, sendResponse) => {
           const on = Boolean(message.on);
@@ -1647,40 +1602,6 @@
             .then(() => sendResponse({ ok: true }));
           return true;
         }],
-        ["getVpnProxy", (message, sendResponse) => {
-          vpnProxy.getSettings().then(sendResponse);
-          return true;
-        }],
-        ["setVpnProxy", (message, sendResponse) => {
-          vpnProxy
-            .saveSettings(message.settings || {})
-            .then(async (settings) => {
-              const status = await this._store.getStatus();
-              // When enabling proxy, harden WebRTC leak path.
-              if (settings.enabled) {
-                await this._store.setFeature("webrtcGuard", true);
-              }
-              const result = await vpnProxy.apply(status.enabled);
-              sendResponse({ ...result, settings });
-            });
-          return true;
-        }],
-        ["getPhishGuardSettings", (message, sendResponse) => {
-          phishGuardSettings.getSettings().then((settings) => {
-            sendResponse({ ok: true, hasKey: settings.hasKey, apiKey: settings.apiKey });
-          });
-          return true;
-        }],
-        ["setPhishGuardSettings", (message, sendResponse) => {
-          phishGuardSettings
-            .saveSettings(message.settings || {})
-            .then((settings) => sendResponse({ ok: true, ...settings }));
-          return true;
-        }],
-        ["scanUrlPhishGuard", (message, sendResponse) => {
-          phishGuardSettings.scan(String(message.url || "")).then(sendResponse);
-          return true;
-        }],
       ]);
     }
 
@@ -1708,8 +1629,6 @@
   const minerBlock = new MinerBlockController();
   const strictTracking = new StrictTrackingController();
   const privacySignals = new PrivacySignalsController();
-  const vpnProxy = new VpnProxyController();
-  const phishGuardSettings = new PhishGuardSettings();
   const siteFeatureOverrides = new SiteFeatureOverrideStore();
   const privacyMode = new PrivacyModeController(store);
   const securityFirewall = new SecurityFirewallStore();
@@ -1755,12 +1674,14 @@
 
   const siteRuleStore = new globalThis.AblSiteRules.SiteRuleStore();
   const customCosmeticStore = new globalThis.AblCustomCosmetics.CustomCosmeticStore();
-  const phishingGuard = new globalThis.AblPhishing.PhishingNavigationGuard(() =>
-    store.getStatus()
-  );
   const listUpdater = new globalThis.AblListUpdater.SupplementalListUpdater(() =>
     store.getStatus()
   );
+  const phishingGuard = new globalThis.AblPhishing.PhishingNavigationGuard(
+    () => store.getStatus(),
+    (host) => listUpdater.lookup(host)
+  );
+  listUpdater.hydrate?.().catch(() => {});
   const activityLog = globalThis.AblActivityLog
     ? new globalThis.AblActivityLog.ActivityLogStore()
     : {
@@ -1883,28 +1804,20 @@
       if (verdict.block) {
         const warn = phishingGuard.warningUrl(url, verdict.score, verdict.reasons);
         await chrome.tabs.update(details.tabId, { url: warn });
+        const listNote =
+          verdict.listHit === "phishing_feed"
+            ? "live phishing feed"
+            : verdict.listHit === "nrd"
+              ? "NRD feed"
+              : "";
         await activityLog.append({
           kind: globalThis.AblActivityLog.ActivityLogStore.kinds.phishing,
-          title: `Phishing warning · score ${verdict.score}`,
+          title: listNote
+            ? `Phishing warning · ${listNote}`
+            : `Phishing warning · score ${verdict.score}`,
           detail: (verdict.reasons || []).join(", ") || url.slice(0, 140),
           host: verdict.host || host,
         });
-        return;
-      }
-
-      const status = await store.getStatus();
-      if (status.features.trustScore !== false && globalThis.AblPhishing?.TrustScore) {
-        const trust = globalThis.AblPhishing.TrustScore.evaluate(url);
-        if (trust.warn) {
-          const warn = globalThis.AblPhishing.TrustScore.warningUrl(url, trust);
-          await chrome.tabs.update(details.tabId, { url: warn });
-          await activityLog.append({
-            kind: globalThis.AblActivityLog.ActivityLogStore.kinds.phishing,
-            title: `Low trust score · ${trust.safety}/100`,
-            detail: (trust.reasons || []).join(", ") || url.slice(0, 140),
-            host: trust.host || host,
-          });
-        }
       }
     } catch (err) {
       console.warn("GOSAFE adblock navigation guard failed:", err);
@@ -1949,6 +1862,27 @@
       // Static blocklists / urlfilters / protections / spotify
       return true;
     }
+
+    /**
+     * Human-readable provenance for activity log.
+     * @param {{ rule?: { rulesetId?: string, ruleId?: number } }} info
+     */
+    static sourceLabel(info) {
+      const rulesetId = String(info?.rule?.rulesetId || "");
+      const ruleId = Number(info?.rule?.ruleId) || 0;
+      if (rulesetId.startsWith("blocklist")) return "HaGeZi / static lists";
+      if (rulesetId.startsWith("urlfilter")) return "URL filters";
+      if (rulesetId === "protections") return "Protections";
+      if (rulesetId === "spotify") return "Spotify";
+      if (rulesetId === "_dynamic" || rulesetId === "_session") {
+        if (ruleId >= 10000) return "Live phishing / NRD";
+        if (ruleId >= 9500 && ruleId < 10000) return "Learned trackers";
+        if (ruleId === 9300) return "Miner block";
+        if (ruleId >= 9200 && ruleId < 9300) return "Site block rule";
+        return "Dynamic rules";
+      }
+      return rulesetId || "rules";
+    }
   }
 
   chrome.declarativeNetRequest.onRuleMatchedDebug?.addListener(async (info) => {
@@ -1959,6 +1893,7 @@
         url: info?.request?.url,
         initiator: info?.request?.initiator,
         rulesetId: info?.rule?.rulesetId,
+        source: MatchedRuleClassifier.sourceLabel(info),
         type: info?.request?.type,
       });
       const initiatorHost = globalThis.AblDs?.HostKey?.fromUrl

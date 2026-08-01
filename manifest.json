@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GOSAFE adblock",
   "version": "1.18.0",
-  "description": "GOSAFE adblock \u2014 learned tracker blocking, GPC/DNT, proxy VPN-lite, and security assistant.",
+  "description": "GOSAFE adblock \u2014 learned tracker blocking, GPC/DNT, and security assistant. (327,785 domains, 37,290 cosmetics).",
   "permissions": [
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",
@@ -13,7 +13,6 @@
     "tabs",
     "webNavigation",
     "webRequest",
-    "proxy",
     "privacy",
     "alarms",
     "browsingData"
@@ -68,6 +67,16 @@
         "id": "blocklist_1",
         "enabled": true,
         "path": "rules/blocklist_1.json"
+      },
+      {
+        "id": "blocklist_2",
+        "enabled": true,
+        "path": "rules/blocklist_2.json"
+      },
+      {
+        "id": "blocklist_3",
+        "enabled": true,
+        "path": "rules/blocklist_3.json"
       },
       {
         "id": "urlfilter_1",

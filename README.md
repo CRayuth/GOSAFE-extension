@@ -31,7 +31,10 @@ Each script is a small composition of classes — data objects, algorithms, and 
 
 Default **lite** profile (uBlock-style defaults, size-capped):
 
-- [HaGeZi Pro Mini](https://github.com/hagezi/dns-blocklists)
+- [HaGeZi Pro Mini](https://github.com/hagezi/dns-blocklists) (ads / tracking)
+- [HaGeZi Threat Intelligence Mini](https://github.com/hagezi/dns-blocklists) (malware / phishing feeds)
+- [HaGeZi Fake](https://github.com/hagezi/dns-blocklists) (scams / fakes / traps)
+- [HaGeZi Pop-Up Ads](https://github.com/hagezi/dns-blocklists)
 - [EasyList](https://easylist.to/easylist/easylist.txt) / [EasyPrivacy](https://easylist.to/easylist/easyprivacy.txt)
 - [Fanboy Cookie](https://easylist.to/)
 - [uBlock filters](https://github.com/uBlockOrigin/uAssets) (filters, badware, privacy, quick-fixes, unbreak) — same public lists [uBlock Origin](https://github.com/gorhill/uBlock) ships by default
@@ -46,7 +49,7 @@ Optional **full** mega-list build (much larger; higher Chrome memory):
 python scripts/build_blocklists.py --full
 ```
 
-Full adds AdGuard DNS, OISD big, HaGeZi Pro, StevenBlack, GoodbyeAds, and more Fanboy lists (plus the uBO extras above).
+Full adds AdGuard DNS, OISD big, HaGeZi Pro, plus the same HaGeZi TIF Mini / Fake / Pop-Up Ads feeds, StevenBlack, GoodbyeAds, and more Fanboy lists (plus the uBO extras above).
 
 ## Phishing CSVs (optional)
 
@@ -97,6 +100,17 @@ python scripts/build_blocklists.py --lite
 ```
 
 Raw downloads stay in `d:\extension-cache` so the unpacked package stays small.
+
+## PhishTrap signals
+
+Local phishing scores use compact thresholds distilled from [saidutta69/PhishTrap](https://huggingface.co/datasets/saidutta69/PhishTrap):
+
+```bash
+pip install datasets
+python scripts/build_phishtrap_signals.py
+```
+
+Writes `rules/phishtrap-signals.json` and `lib/phishtrap-signals.js` (loaded by the service worker).
 
 ## Pack for Chrome Web Store
 

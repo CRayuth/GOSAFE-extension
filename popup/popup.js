@@ -232,20 +232,16 @@
       this.trustBadge = document.getElementById("trustBadge");
       this.trustHost = document.getElementById("trustHost");
       this.trustChecks = document.getElementById("trustChecks");
-      this.phishGuardScan = document.getElementById("phishGuardScan");
-      this.phishGuardVerdict = document.getElementById("phishGuardVerdict");
-      this.phishGuardApiKey = document.getElementById("phishGuardApiKey");
-      this.phishGuardHint = document.getElementById("phishGuardHint");
-      this.phishGuardBlock = document.getElementById("phishGuardBlock");
+      this.trustVerdict = document.getElementById("trustVerdict");
+      this.trustReasons = document.getElementById("trustReasons");
       this.privacyModeBtn = document.getElementById("privacyModeBtn");
+      this.featWebrtcHint = document.getElementById("featWebrtcHint");
+      this.featWebrtcRow = document.getElementById("featWebrtcRow");
+      this.featListUpdateHint = document.getElementById("featListUpdateHint");
+      this.featListUpdateRow = document.getElementById("featListUpdateRow");
       this.privacyModeLabel = document.getElementById("privacyModeLabel");
       this.privacyModeHint = document.getElementById("privacyModeHint");
       this.openSecurity = document.getElementById("openSecurity");
-      this.vpnEnabled = document.getElementById("vpnEnabled");
-      this.vpnScheme = document.getElementById("vpnScheme");
-      this.vpnHost = document.getElementById("vpnHost");
-      this.vpnPort = document.getElementById("vpnPort");
-      this.vpnHint = document.getElementById("vpnHint");
       this.siteModes = document.getElementById("siteModes");
       this.tempAllow = document.getElementById("tempAllow");
       this.tempAllowHint = document.getElementById("tempAllowHint");
@@ -411,7 +407,8 @@
       if (entry.watched) lines.push(`<span>Watch: whitelisted site — tracker still blocked</span>`);
       if (entry.url) lines.push(`<span>URL: ${entry.url}</span>`);
       if (entry.type) lines.push(`<span>Type: ${entry.type}</span>`);
-      if (entry.ruleset) lines.push(`<span>Ruleset: ${entry.ruleset}</span>`);
+      if (entry.source) lines.push(`<span>Source: ${entry.source}</span>`);
+      else if (entry.ruleset) lines.push(`<span>Ruleset: ${entry.ruleset}</span>`);
       tip.innerHTML = lines.join("");
       tip.classList.add("is-on");
       const pad = 8;
@@ -567,7 +564,14 @@
     }
 
     /**
-     * @param {{ safety?: number, host?: string, checks?: { ok: boolean, label: string }[], disabled?: boolean } | null} report
+     * @param {{
+     *   safety?: number,
+     *   host?: string,
+     *   checks?: { ok: boolean, label: string }[],
+     *   verdict?: string,
+     *   reasonLabels?: string[],
+     *   disabled?: boolean
+     * } | null} report
      */
     renderTrustScore(report) {
       if (!this.trustCard) return;
@@ -577,14 +581,28 @@
       }
       this.trustCard.hidden = false;
       const safety = Number(report.safety) || 0;
+      const verdict =
+        report.verdict === "safe" || report.verdict === "caution" || report.verdict === "block"
+          ? report.verdict
+          : safety >= 75
+            ? "safe"
+            : safety >= 45
+              ? "caution"
+              : "block";
       if (this.trustBadge) {
         this.trustBadge.textContent = String(safety);
         this.trustBadge.classList.remove("is-good", "is-mid", "is-bad");
         this.trustBadge.classList.add(
-          safety >= 75 ? "is-good" : safety >= 45 ? "is-mid" : "is-bad"
+          verdict === "safe" ? "is-good" : verdict === "caution" ? "is-mid" : "is-bad"
         );
       }
       if (this.trustHost) this.trustHost.textContent = report.host || "—";
+      if (this.trustVerdict) {
+        this.trustVerdict.hidden = false;
+        this.trustVerdict.className = `trust-verdict is-${verdict}`;
+        this.trustVerdict.textContent =
+          verdict === "safe" ? "Safe" : verdict === "caution" ? "Caution" : "Block / high risk";
+      }
       if (this.trustChecks) {
         this.trustChecks.replaceChildren();
         for (const check of report.checks || []) {
@@ -594,70 +612,75 @@
           this.trustChecks.append(li);
         }
       }
+      if (this.trustReasons) {
+        const labels = (report.reasonLabels || []).filter(Boolean);
+        this.trustReasons.replaceChildren();
+        if (!labels.length) {
+          this.trustReasons.hidden = true;
+        } else {
+          this.trustReasons.hidden = false;
+          for (const label of labels.slice(0, 6)) {
+            const li = document.createElement("li");
+            li.textContent = label;
+            this.trustReasons.append(li);
+          }
+        }
+      }
     }
 
     /**
-     * @param {{ hasKey?: boolean, apiKey?: string } | null} settings
+     * @param {{ conflict?: boolean, applied?: boolean, error?: string } | null} status
      */
-    renderPhishGuardSettings(settings) {
-      if (!this.phishGuardApiKey) return;
-      const key = settings?.apiKey || "";
-      if (document.activeElement !== this.phishGuardApiKey) {
-        this.phishGuardApiKey.value = key;
-      }
-      if (this.phishGuardHint) {
-        this.phishGuardHint.hidden = Boolean(settings?.hasKey || key);
+    renderWebRtcStatus(status) {
+      if (!this.featWebrtcHint) return;
+      if (status?.conflict) {
+        this.featWebrtcHint.textContent =
+          "Skipped — another extension (e.g. Surfshark) owns WebRTC";
+        this.featWebrtcRow?.classList.add("is-conflict");
+      } else if (status?.error === "not_controllable") {
+        this.featWebrtcHint.textContent = "Not controllable in this browser";
+        this.featWebrtcRow?.classList.add("is-conflict");
+      } else {
+        this.featWebrtcHint.textContent = "Reduce IP leak risk";
+        this.featWebrtcRow?.classList.remove("is-conflict");
       }
     }
 
     /**
-     * @param {{ ok?: boolean, riskLevel?: string, riskScore?: number, reasons?: string[], error?: string, cached?: boolean } | null} result
-     * @param {{ busy?: boolean }} [opts]
+     * @param {{ ok?: boolean, count?: number, at?: number, error?: string, phishingHosts?: number, nrdHosts?: number } | null} meta
      */
-    renderPhishGuardResult(result, opts = {}) {
-      if (this.phishGuardScan) {
-        this.phishGuardScan.disabled = Boolean(opts.busy);
-        this.phishGuardScan.classList.toggle("is-busy", Boolean(opts.busy));
-      }
-      if (!this.phishGuardVerdict) return;
-      if (opts.busy) {
-        this.phishGuardVerdict.hidden = false;
-        this.phishGuardVerdict.className = "pg-verdict is-err";
-        this.phishGuardVerdict.textContent = "Scanning…";
+    renderListUpdateStatus(meta) {
+      if (!this.featListUpdateHint) return;
+      if (!meta || (!meta.at && !meta.error)) {
+        this.featListUpdateHint.textContent = "Refresh supplemental blocks daily";
         return;
       }
-      if (!result) {
-        this.phishGuardVerdict.hidden = true;
-        this.phishGuardVerdict.textContent = "";
+      if (meta.error === "disabled") {
+        this.featListUpdateHint.textContent = "Off — enable to sync live feeds";
         return;
       }
-      if (!result.ok) {
-        const map = {
-          missing_api_key: "Add API key first",
-          invalid_api_key: "Invalid API key",
-          rate_limited: "Rate limited — try later",
-          invalid_url: "Invalid URL",
-          unsupported_scheme: "Only http/https",
-          client_unavailable: "Scanner unavailable",
-        };
-        this.phishGuardVerdict.hidden = false;
-        this.phishGuardVerdict.className = "pg-verdict is-err";
-        this.phishGuardVerdict.textContent =
-          map[result.error] || result.error || "Scan failed";
+      if (meta.ok === false) {
+        this.featListUpdateHint.textContent = `Update failed · ${String(meta.error || "error").slice(0, 40)}`;
         return;
       }
-      const level = String(result.riskLevel || "UNKNOWN").toUpperCase();
-      const score =
-        result.riskScore != null && Number.isFinite(Number(result.riskScore))
-          ? ` · ${result.riskScore}`
-          : "";
-      let tone = "is-mid";
-      if (/SAFE|LOW|CLEAN|LEGIT/.test(level)) tone = "is-safe";
-      else if (/HIGH|CRITICAL|PHISH|MALICIOUS|DANGER/.test(level)) tone = "is-bad";
-      this.phishGuardVerdict.hidden = false;
-      this.phishGuardVerdict.className = `pg-verdict ${tone}`;
-      this.phishGuardVerdict.textContent = `${level}${score}${result.cached ? " · cached" : ""}`;
-      this.phishGuardVerdict.title = (result.reasons || []).join(", ") || level;
+      const when = meta.at ? new Date(meta.at) : null;
+      const ago = when
+        ? (() => {
+            const mins = Math.max(0, Math.round((Date.now() - when.getTime()) / 60000));
+            if (mins < 60) return `${mins}m ago`;
+            const hrs = Math.round(mins / 60);
+            if (hrs < 48) return `${hrs}h ago`;
+            return when.toLocaleDateString();
+          })()
+        : "";
+      const hosts = Number(meta.phishingHosts || 0) + Number(meta.nrdHosts || 0);
+      const parts = [];
+      if (hosts) parts.push(`${hosts} hosts`);
+      else if (meta.count) parts.push(`${meta.count} rules`);
+      if (ago) parts.push(ago);
+      this.featListUpdateHint.textContent = parts.length
+        ? parts.join(" · ")
+        : "Refresh supplemental blocks daily";
     }
 
     /** @param {boolean} on */
@@ -671,21 +694,6 @@
         this.privacyModeHint.textContent = on
           ? "Tap to turn off (cookies already cleared this session)"
           : "Trackers, fingerprint, HTTPS, clear cookies";
-      }
-    }
-
-    /** @param {{ enabled?: boolean, scheme?: string, host?: string, port?: number } | null} vpn */
-    renderVpn(vpn) {
-      if (!this.vpnEnabled) return;
-      const settings = vpn || {};
-      this.vpnEnabled.checked = Boolean(settings.enabled);
-      if (this.vpnScheme) this.vpnScheme.value = settings.scheme || "socks5";
-      if (this.vpnHost) this.vpnHost.value = settings.host || "";
-      if (this.vpnPort) this.vpnPort.value = String(settings.port || 1080);
-      if (this.vpnHint) {
-        this.vpnHint.textContent = settings.enabled && settings.host
-          ? `On · ${settings.scheme}://${settings.host}:${settings.port}`
-          : "Route Chrome via SOCKS/HTTP proxy";
       }
     }
 
@@ -932,12 +940,6 @@
       }
       this._view.render(status, this._site);
       this._view.renderPrivacyMode(Boolean(status.features.privacyMode));
-      try {
-        const vpn = await chrome.runtime.sendMessage({ type: "getVpnProxy" });
-        this._view.renderVpn(vpn);
-      } catch {
-        this._view.renderVpn(null);
-      }
       this._view.renderSiteMode(
         this._site.siteMode || "default",
         Boolean(this._site.host),
@@ -972,10 +974,16 @@
         this._view.renderTrustScore(null);
       }
       try {
-        const pg = await chrome.runtime.sendMessage({ type: "getPhishGuardSettings" });
-        this._view.renderPhishGuardSettings(pg);
+        const webrtcStatus = await chrome.runtime.sendMessage({ type: "getWebRtcStatus" });
+        this._view.renderWebRtcStatus(webrtcStatus);
       } catch {
-        this._view.renderPhishGuardSettings(null);
+        this._view.renderWebRtcStatus(null);
+      }
+      try {
+        const listMeta = await chrome.runtime.sendMessage({ type: "getListUpdateMeta" });
+        this._view.renderListUpdateStatus(listMeta);
+      } catch {
+        this._view.renderListUpdateStatus(null);
       }
       try {
         if (this._site.host) {
@@ -1119,64 +1127,6 @@
       this._view.openSecurity?.addEventListener("click", async () => {
         await chrome.runtime.sendMessage({ type: "openSecurityAssistant" });
         window.close();
-      });
-
-      const saveVpn = async (partial) => {
-        const settings = {
-          enabled: Boolean(this._view.vpnEnabled?.checked),
-          scheme: this._view.vpnScheme?.value || "socks5",
-          host: this._view.vpnHost?.value || "",
-          port: Number(this._view.vpnPort?.value) || 1080,
-          ...partial,
-        };
-        const result = await chrome.runtime.sendMessage({
-          type: "setVpnProxy",
-          settings,
-        });
-        this._view.renderVpn(result?.settings || settings);
-        if (result?.ok === false && result?.error) {
-          if (this._view.vpnHint) {
-            this._view.vpnHint.textContent = `Proxy error: ${result.error}`;
-          }
-        }
-      };
-      this._view.vpnEnabled?.addEventListener("change", () => saveVpn({}));
-      this._view.vpnScheme?.addEventListener("change", () => saveVpn({}));
-      this._view.vpnHost?.addEventListener("change", () => saveVpn({}));
-      this._view.vpnPort?.addEventListener("change", () => saveVpn({}));
-
-      const savePhishGuardKey = async () => {
-        const apiKey = this._view.phishGuardApiKey?.value || "";
-        const saved = await chrome.runtime.sendMessage({
-          type: "setPhishGuardSettings",
-          settings: { apiKey },
-        });
-        this._view.renderPhishGuardSettings(saved);
-      };
-      this._view.phishGuardApiKey?.addEventListener("change", () => {
-        savePhishGuardKey().catch(() => {});
-      });
-      this._view.phishGuardScan?.addEventListener("click", async () => {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const url = tab?.url || (this._site.host ? `https://${this._site.host}/` : "");
-        if (!url || !/^https?:/i.test(url)) {
-          this._view.renderPhishGuardResult({ ok: false, error: "unsupported_scheme" });
-          return;
-        }
-        // Persist key if typed but not yet blurred
-        if (this._view.phishGuardApiKey?.value) {
-          await savePhishGuardKey();
-        }
-        this._view.renderPhishGuardResult(null, { busy: true });
-        try {
-          const result = await chrome.runtime.sendMessage({
-            type: "scanUrlPhishGuard",
-            url,
-          });
-          this._view.renderPhishGuardResult(result || { ok: false, error: "scan_failed" });
-        } catch {
-          this._view.renderPhishGuardResult({ ok: false, error: "scan_failed" });
-        }
       });
 
       this._view.siteModes?.addEventListener("click", async (event) => {

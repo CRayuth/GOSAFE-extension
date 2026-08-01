@@ -110,6 +110,34 @@ SOURCES_FULL = [
     },
 ]
 
+# HaGeZi specialty security feeds (Multi Pro only partially includes Fake/TIF).
+HAGEZI_SECURITY_EXTRAS = [
+    {
+        "id": "hagezi_tif_mini",
+        "name": "HaGeZi Threat Intelligence Mini",
+        "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.mini.txt",
+        "cache": CACHE_DIR / "hagezi-tif-mini.txt",
+        "format": "adblock",
+        "cosmetics": False,
+    },
+    {
+        "id": "hagezi_fake",
+        "name": "HaGeZi Fake",
+        "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/fake.txt",
+        "cache": CACHE_DIR / "hagezi-fake.txt",
+        "format": "adblock",
+        "cosmetics": False,
+    },
+    {
+        "id": "hagezi_popupads",
+        "name": "HaGeZi Pop-Up Ads",
+        "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/popupads.txt",
+        "cache": CACHE_DIR / "hagezi-popupads.txt",
+        "format": "adblock",
+        "cosmetics": False,
+    },
+]
+
 # Lists aligned with uBlock Origin defaults (https://github.com/gorhill/uBlock)
 # — we consume public EasyList-syntax lists, not uBO's proprietary engine.
 UBO_DEFAULT_EXTRAS = [
@@ -171,9 +199,9 @@ UBO_DEFAULT_EXTRAS = [
     },
 ]
 
-SOURCES_FULL = SOURCES_FULL + UBO_DEFAULT_EXTRAS
+SOURCES_FULL = SOURCES_FULL + HAGEZI_SECURITY_EXTRAS + UBO_DEFAULT_EXTRAS
 
-# Default profile: lean DNS + EasyList stack + uBO default extras (still capped).
+# Default profile: lean DNS + EasyList stack + HaGeZi security + uBO extras (still capped).
 SOURCES_LITE = [
     {
         "id": "hagezi_promini",
@@ -183,6 +211,7 @@ SOURCES_LITE = [
         "format": "adblock",
         "cosmetics": False,
     },
+] + HAGEZI_SECURITY_EXTRAS + [
     {
         "id": "easylist",
         "name": "EasyList",

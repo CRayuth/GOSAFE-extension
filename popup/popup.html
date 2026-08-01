@@ -81,30 +81,9 @@
             <small id="trustHost">—</small>
           </div>
         </div>
+        <div class="trust-verdict" id="trustVerdict" hidden>Safe</div>
         <ul class="trust-checks" id="trustChecks"></ul>
-        <div class="pg-block" id="phishGuardBlock">
-          <div class="pg-row">
-            <button id="phishGuardScan" type="button" class="pg-scan-btn">
-              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-              Scan with PhishGuard
-            </button>
-            <span class="pg-verdict" id="phishGuardVerdict" hidden></span>
-          </div>
-          <input
-            id="phishGuardApiKey"
-            class="pg-key"
-            type="password"
-            placeholder="PhishGuard API key"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <p class="pg-hint" id="phishGuardHint">
-            Free key:
-            <a href="https://www.phishguard.co.in/developer" target="_blank" rel="noopener noreferrer"
-              >phishguard.co.in/developer</a
-            >
-          </p>
-        </div>
+        <ul class="trust-reasons" id="trustReasons" hidden></ul>
       </section>
 
       <button id="privacyModeBtn" type="button" class="privacy-cta">
@@ -117,31 +96,6 @@
         </span>
         <i class="fa-solid fa-chevron-right row-chevron"></i>
       </button>
-
-      <section class="vpn-card" id="vpnCard">
-        <div class="vpn-top">
-          <span class="ua-badge" aria-hidden="true"><i class="fa-solid fa-network-wired"></i></span>
-          <div class="ua-copy">
-            <strong>Proxy VPN-lite</strong>
-            <small id="vpnHint">Route Chrome via SOCKS/HTTP proxy</small>
-          </div>
-          <label class="ua-switch" title="Toggle proxy" for="vpnEnabled">
-            <input id="vpnEnabled" type="checkbox" />
-            <span class="mini-switch"></span>
-          </label>
-        </div>
-        <div class="vpn-fields">
-          <select id="vpnScheme" aria-label="Proxy scheme">
-            <option value="socks5">SOCKS5</option>
-            <option value="socks4">SOCKS4</option>
-            <option value="http">HTTP</option>
-            <option value="https">HTTPS</option>
-          </select>
-          <input id="vpnHost" type="text" placeholder="proxy.host" autocomplete="off" spellcheck="false" />
-          <input id="vpnPort" type="number" min="1" max="65535" placeholder="1080" />
-        </div>
-        <p class="vpn-note">Not a full WireGuard VPN — use your VPN app’s local SOCKS port, or any proxy you trust.</p>
-      </section>
 
       <section class="nav-block">
         <label class="nav-row is-active power-row" for="toggle">
@@ -393,12 +347,12 @@
             <span class="mini-switch"></span>
           </label>
 
-          <label class="nav-row feature">
+          <label class="nav-row feature" id="featWebrtcRow">
             <span class="nav-left">
               <i class="fa-solid fa-network-wired"></i>
               <span class="nav-copy">
                 <strong>WebRTC shield</strong>
-                <small>Reduce IP leak risk</small>
+                <small id="featWebrtcHint">Reduce IP leak risk</small>
               </span>
             </span>
             <input id="featWebrtc" type="checkbox" checked />
@@ -441,12 +395,12 @@
             <span class="mini-switch"></span>
           </label>
 
-          <label class="nav-row feature">
+          <label class="nav-row feature" id="featListUpdateRow">
             <span class="nav-left">
               <i class="fa-solid fa-cloud-arrow-down"></i>
               <span class="nav-copy">
                 <strong>List auto-update</strong>
-                <small>Refresh supplemental blocks daily</small>
+                <small id="featListUpdateHint">Refresh supplemental blocks daily</small>
               </span>
             </span>
             <input id="featListUpdate" type="checkbox" checked />
