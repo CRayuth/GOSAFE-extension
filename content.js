@@ -228,6 +228,8 @@
       videoPip: true,
       readerMode: true,
       quizAssist: true,
+      fbAddFriend: true,
+      pageInsights: true,
       aiAssistant: false,
     });
 
@@ -429,6 +431,15 @@
       root.setAttribute(
         "data-gosafe-quiz-assist",
         on(this.features.quizAssist !== false)
+      );
+      // Facebook Add Friend on creator profiles — allowed on Meta (not soft-exempted away)
+      root.setAttribute(
+        "data-gosafe-fb-add-friend",
+        on(this.features.fbAddFriend !== false)
+      );
+      root.setAttribute(
+        "data-gosafe-page-insights",
+        on(this.features.pageInsights !== false)
       );
       try {
         root.setAttribute("data-gosafe-icon-url", chrome.runtime.getURL("icons/icon48.png"));
@@ -1743,6 +1754,40 @@ iframe.ads[allow*="fullscreen" i],
       );
     }
 
+    /** Keep Facebook Add Friend / Confirm / Cancel request controls visible. */
+    #protectMetaFriendUi() {
+      this._styles.inject(
+        "adblock-lite-meta-friend",
+        `
+[aria-label="Add friend" i],
+[aria-label="Add Friend"],
+[aria-label*="Add friend" i],
+[aria-label*="Add Friend" i],
+[aria-label="Confirm" i],
+[aria-label*="Confirm friend" i],
+[aria-label="Cancel request" i],
+[aria-label*="Cancel request" i],
+[aria-label*="Respond to friend" i],
+div[role="button"][aria-label*="Add friend" i],
+div[role="button"][aria-label*="Add Friend" i],
+div[role="button"][aria-label="Confirm" i],
+div[role="button"][aria-label*="Cancel request" i],
+a[aria-label*="Add friend" i],
+span[aria-label*="Add friend" i] {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  clip: auto !important;
+  position: relative !important;
+}
+`.trim()
+      );
+    }
+
     async applyCustom() {
       if (!SiteContext.isTopFrame()) return;
       try {
@@ -1778,6 +1823,15 @@ iframe.ads[allow*="fullscreen" i],
             for (const sel of list) {
               const s = String(sel || "").trim();
               if (!s || seen.has(s)) continue;
+              // Never let learned/custom rules hide Facebook friend actions
+              if (
+                SiteContext.isMetaApp() &&
+                /add.?friend|friend.?request|cancel.?request|confirm.?friend|people you may know|pymk/i.test(
+                  s
+                )
+              ) {
+                continue;
+              }
               seen.add(s);
               selectors.push(s);
             }
@@ -1850,7 +1904,11 @@ iframe.ads[allow*="fullscreen" i],
 
         // Meta / NVIDIA / Google apps — EasyList + hooks corrupt product buttons
         if (SiteContext.isSoftPageExempt()) {
-          this.applyFallbacks();
+          if (SiteContext.isMetaApp()) {
+            this.#protectMetaFriendUi();
+          } else {
+            this.applyFallbacks();
+          }
           return;
         }
 
@@ -2033,6 +2091,8 @@ iframe.ads[allow*="fullscreen" i],
       document.documentElement?.setAttribute("data-adblock-lite-pip", "off");
       document.documentElement?.setAttribute("data-gosafe-reader-mode", "off");
       document.documentElement?.setAttribute("data-gosafe-quiz-assist", "off");
+      document.documentElement?.setAttribute("data-gosafe-fb-add-friend", "off");
+      document.documentElement?.setAttribute("data-gosafe-page-insights", "off");
       document.documentElement?.removeAttribute("data-adblock-lite-ua");
     }
   }

@@ -278,6 +278,23 @@ html[data-theme="dark"] .trust-verdict.is-block {
   color: var(--brand);
 }
 
+.health-card {
+  border-color: rgba(15, 118, 110, 0.25);
+  cursor: pointer;
+}
+
+.health-card:hover {
+  border-color: var(--brand);
+  background: var(--hover, #e2eaf6);
+}
+
+.health-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted, #64748b);
+}
+
 .privacy-cta {
   width: 100%;
   display: flex;

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GOSAFE adblock",
-  "version": "1.26.23",
-  "description": "GOSAFE adblock \u2014 tracker blocking, DNS defense, Force English, link preview, text selection (QCM + NVIDIA), video PiP, reader mode, Quiz Assist (Kahoot bank + NVIDIA), and security assistant.",
+  "version": "1.27.0",
+  "description": "GOSAFE adblock \u2014 tracker blocking, DNS defense, Force English, link preview, text selection (QCM + NVIDIA), video PiP, reader mode, Quiz Assist, Page Insights (privacy receipt, dark patterns, permissions, health score), and security assistant.",
   "permissions": [
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",
@@ -15,7 +15,8 @@
     "webRequest",
     "privacy",
     "alarms",
-    "browsingData"
+    "browsingData",
+    "contentSettings"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -221,6 +222,30 @@
       "run_at": "document_start",
       "world": "MAIN",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.facebook.com/*",
+        "*://facebook.com/*",
+        "*://*.fb.com/*",
+        "*://fb.com/*"
+      ],
+      "js": [
+        "facebook-friend-page.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "lib/page-insights.js",
+        "page-insights-page.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
     },
     {
       "matches": [

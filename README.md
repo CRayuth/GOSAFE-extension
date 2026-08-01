@@ -1,196 +1,323 @@
 # GOSAFE adblock
 
-Manifest V3 ad / tracker / phishing blocker with YouTube skip, redirect guards, and Medium member-story reader.
+**Chrome Manifest V3** extension for tracker / ad / phishing defense — plus page helpers for privacy, media, learning tools, and Page Insights.
 
-## Architecture (OOP)
+| | |
+|---|---|
+| **Version** | `1.27.0` |
+| **Platform** | Chromium (Chrome / Edge / Brave) |
+| **Engine** | `declarativeNetRequest` + isolated / MAIN-world content scripts |
+| **Repo** | [CRayuth/GOSAFE-extension](https://github.com/CRayuth/GOSAFE-extension) |
 
-Each script is a small composition of classes — data objects, algorithms, and a controller:
+---
 
-| File | Responsibility |
+## Table of contents
+
+1. [Features](#features)
+2. [Architecture](#architecture)
+3. [Request & protection flow](#request--protection-flow)
+4. [Feature-flag pipeline](#feature-flag-pipeline)
+5. [Page Insights](#page-insights)
+6. [Install](#install)
+7. [Rulesets & build](#rulesets--build)
+8. [Project layout](#project-layout)
+9. [Development notes](#development-notes)
+
+---
+
+## Features
+
+| Area | What it does |
 |------|----------------|
-| `background.js` | Service worker: DNR + HTTPS ruleset, WebRTC privacy, download guard, message router |
-| `content.js` | Cosmetics, redirect guard, HTTPS insecure banner, DOM feature flags |
-| `clickguard-page.js` | MAIN world: overlay / `window.open` / location hijack guards |
-| `security-page.js` | MAIN world: clipboard crypto guard, scriptlets, permission spam |
-| `ua-generator.js` / `ua-page.js` | Random User-Agent pool + MAIN-world navigator spoof |
-| `options/user-agent.html` | User-Agent settings page (pool, rotation, renew) |
-| `youtube.js` | Hide YouTube chrome ads via CSS |
-| `youtube-page.js` | MAIN world: DFS-clean player JSON + ad skip/seek state machine |
-| `medium.js` | Detect locked posts, fetch mirror, reader overlay |
-| `popup/popup.js` | Toggle UI + blocked counter |
+| **Network** | Block / redirect trackers via DNR; strip tracking params; HTTPS upgrade; DNS defense |
+| **Privacy** | WebRTC shield, fingerprint noise, random UA, GPC/DNT, cookie-consent reject, clipboard crypto guard |
+| **Security** | Phishing / trust score, permission spam guard, malware host feeds, security watch |
+| **Page UX** | Force English, link preview, text selection + QCM (NVIDIA), reader mode, video PiP |
+| **Site helpers** | YouTube / Spotify ad skip, Medium unlock, login-wall peek, Facebook Add Friend |
+| **Quiz Assist** | Kahoot bank + NVIDIA answers (Quizizz / Wayground / Kahoot) |
+| **Page Insights** | Privacy receipt, subscription / dark-pattern detectors, session perf block, permissions, health score |
+| **Control** | Popup toggles, per-site Auto / Whitelist / Block, hide-element picker, user rules, activity log |
 
-### Patterns used
+GOSAFE is **not** a fork of uBlock Origin. It reuses community filter lists and implements its own MV3 stack.
 
-- **Value objects** — `ArticleUrl`, `UnlockResult`, `PopupStatus`
-- **Catalogs / sets** — selector lists, mirror queues, regex matchers
-- **Algorithms** — DFS JSON ad prune, domain-suffix walk, batched CSS chunking, linear mirror failover, debounced mutation coalesce
-- **Controllers** — one app entry per script (`ContentController`, `MediumUnlockController`, …)
-- **Message dispatch table** — `Map` of command → handler in the background worker
+---
 
-## d3ward Ad Block Test hosts
+## Architecture
 
-High-priority DNR ruleset (`rules/d3host.json`, priority **1100**) blocks the
-[d3ward d3host](https://github.com/d3ward/toolz) domains — including tracker
-subdomains that would otherwise win via the broad site allowlist (priority 1000),
-e.g. `analytics.google.com`, `log.fc.yahoo.com`, `ads.youtube.com`.
+High-level composition: the **service worker** owns network policy and messages; **content scripts** apply page behavior; the **popup** is the control surface.
+
+```mermaid
+flowchart TB
+  subgraph UI["Extension UI"]
+    Popup["popup/\nstatus · toggles · health card"]
+    Options["options/\nUA · user rules"]
+  end
+
+  subgraph SW["Service worker — background.js"]
+    Router["MessageRouter"]
+    Store["ExtensionStateStore\nfeatures · site rules"]
+    DNR["RulesetController\nstatic + dynamic + session DNR"]
+    Trust["TrustScore / phishing"]
+    InsightsBG["PageInsightsController\ncontentSettings · session blocks"]
+    Log["ActivityLogStore"]
+  end
+
+  subgraph Page["Active tab"]
+    Content["content.js\ncosmetics · DOM flags"]
+    Isolated["Isolated scripts\nPage Insights · Quiz · Preview …"]
+    Main["MAIN world\nclickguard · security · UA spoof"]
+  end
+
+  Popup --> Router
+  Options --> Router
+  Router --> Store
+  Router --> DNR
+  Router --> Trust
+  Router --> InsightsBG
+  Router --> Log
+  Store -->|"chrome.storage"| Content
+  Content -->|"data-gosafe-* flags"| Isolated
+  Content -->|"data-adblock-lite-*"| Main
+  Isolated --> Router
+  DNR -->|"block / redirect / strip"| Net["Network requests"]
+```
+
+### OOP style
+
+Each script is a small composition of **value objects**, **catalogs**, **algorithms**, and a **controller** entry (e.g. `ContentController`, `MessageRouter`).
+
+```mermaid
+flowchart LR
+  VO["Value objects\nHostKey · scores · results"] --> Alg["Algorithms\nsuffix walk · ring buffer · scorers"]
+  Alg --> Ctrl["Controllers\napply policy · route messages"]
+  Ctrl --> Chrome["Chrome APIs\nDNR · storage · tabs · contentSettings"]
+```
+
+---
+
+## Request & protection flow
+
+What happens when a page loads and a subresource is requested:
+
+```mermaid
+sequenceDiagram
+  participant Tab as Browser tab
+  participant DNR as declarativeNetRequest
+  participant SW as background.js
+  participant CS as content scripts
+
+  Tab->>DNR: Request (script / xhr / pixel …)
+  DNR->>DNR: Match allowlist / blocklist / redirects / trackparams
+  alt Block or redirect
+    DNR-->>Tab: Cancel or stub resource
+    DNR->>SW: onRuleMatchedDebug (optional)
+    SW->>SW: Activity log + KPIs
+  else Allow
+    DNR-->>Tab: Continue
+  end
+
+  Tab->>CS: document_start / idle inject
+  CS->>CS: Publish data-gosafe-* / data-adblock-lite-*
+  CS->>CS: Cosmetics, guards, page features
+```
+
+### DNR priority (simplified)
+
+```mermaid
+flowchart TD
+  R["Incoming request"] --> A{"Allowlist\nprio ~1000?"}
+  A -->|shell / full allow| OK["Allow"]
+  A -->|no| B{"d3host / redirects\nprio ~1100+?"}
+  B -->|hit| BR["Block or redirect stub"]
+  B -->|no| C{"Blocklists / protections\n/ trackparams?"}
+  C -->|hit| BR
+  C -->|no| D{"Dynamic / session\nUA · GPC · site · Insights 9700+"}
+  D -->|hit| BR
+  D -->|no| OK
+```
+
+---
+
+## Feature-flag pipeline
+
+Features are camelCase booleans mirrored in **three** places, then published as DOM attributes for page scripts.
+
+```mermaid
+flowchart LR
+  Popup["popup checkbox"] -->|"setFeature"| BG["background.js\nDEFAULT_FEATURES"]
+  BG -->|"chrome.storage.local.features"| Content["content.js\nProtectionPolicy"]
+  Content -->|"publishDomFlags()"| DOM["documentElement\ndata-gosafe-*\ndata-adblock-lite-*"]
+  DOM --> Page["FeatureGate.on()\nin page-*.js"]
+```
+
+| Flag example | DOM attribute | Script |
+|--------------|---------------|--------|
+| `pageInsights` | `data-gosafe-page-insights` | `page-insights-page.js` |
+| `quizAssist` | `data-gosafe-quiz-assist` | `quiz-assist-page.js` |
+| `permissionGuard` | `data-adblock-lite-permissions` | `security-page.js` (MAIN) |
+
+Master kill: `data-adblock-lite="off"` (protection paused / disabled).
+
+---
+
+## Page Insights
+
+On-demand panel (no floating button). Open from the popup **Page Health** card; close with **✕** or **Esc**.
+
+```mermaid
+flowchart TB
+  Popup["Popup · Page Health card"] -->|"openPageInsights"| PI["page-insights-page.js"]
+  PI --> Scan["PageScan\nDOM · Resource Timing · a11y"]
+  Scan --> Lib["lib/page-insights.js\nsubscription · dark patterns · health math"]
+  PI -->|"getTrustScore"| BG["background.js"]
+  PI -->|"get/setPagePermission"| CS["chrome.contentSettings"]
+  PI -->|"blockThirdPartiesSession"| Session["DNR session rules 9700–9799"]
+
+  subgraph Tabs["Panel tabs"]
+    T1["Score"]
+    T2["Privacy receipt"]
+    T3["Dark patterns"]
+    T4["Speed / optimize"]
+    T5["Permissions"]
+  end
+  PI --> Tabs
+```
+
+**Health score pillars (weights):** Speed 25 · Privacy 25 · Security 30 · Accessibility 20.
+
+---
+
+## Install
+
+1. Open `chrome://extensions`
+2. Enable **Developer mode**
+3. **Load unpacked** → select this repository folder
+4. Reload the extension after code or ruleset rebuilds
+
+Approve new permissions when prompted (e.g. `contentSettings` for Page Insights permission manager).
+
+---
+
+## Rulesets & build
+
+### Filter sources (lite default)
+
+- [HaGeZi](https://github.com/hagezi/dns-blocklists) Pro Mini, TIF Mini, Fake, Pop-Up Ads  
+- [EasyList](https://easylist.to/) / EasyPrivacy / Fanboy Cookie  
+- [uBlock uAssets](https://github.com/uBlockOrigin/uAssets) filters, badware, privacy, quick-fixes, unbreak  
+- [Peter Lowe](https://pgl.yoyo.org/adservers/) · [URLhaus](https://gitlab.com/malware-filter/urlhaus-filter)  
+- AdGuard Tracking Protection (in blocklist build) · URL Tracking → `rules/trackparams.json`
+
+```mermaid
+flowchart LR
+  Src["Remote filter lists"] --> Build["scripts/build_*.py"]
+  Build --> Rules["rules/*.json"]
+  Rules --> Manifest["manifest.json\ndeclarative_net_request"]
+  Manifest --> Chrome["Chrome DNR engine"]
+```
+
+### Common commands
 
 ```bash
+# Blocklists
+python scripts/build_blocklists.py --lite
+python scripts/build_blocklists.py --full          # larger; more memory
+
+# Specialized rulesets
 python scripts/build_d3host.py
-```
-
-## Redirect stubs (AdGuard-style `$redirect`)
-
-MV3 cannot patch responses; instead GOSAFE **redirects** common tag/pixel hosts
-to local empty resources under `web-accessible-resources/redirects/` (priority **1110**).
-That keeps `onerror` quieter than a hard block while still neutering trackers
-(`googletagmanager.com`, `google-analytics.com`, FB pixel paths, etc.).
-
-```bash
 python scripts/build_redirects.py
-```
-
-## AdGuard Tracking Protection + URL Tracking
-
-- **Tracking Protection** ([filter_3_Spyware](https://github.com/AdguardTeam/FiltersRegistry/tree/master/filters/filter_3_Spyware)) is included in the lite/full blocklist build (`build_blocklists.py`) for extra tracker domains + cosmetics.
-- **URL Tracking** ([filter_17_TrackParam](https://github.com/AdguardTeam/FiltersRegistry/tree/master/filters/filter_17_TrackParam)) is compiled to `rules/trackparams.json` — DNR `queryTransform.removeParams` strips `utm_*`, `fbclid`, `gclid`, and ~1.7k other params (priority **500**).
-
-```bash
 python scripts/build_trackparams.py
+python scripts/refresh_rulesets.py                 # d3host + redirects
+python scripts/refresh_rulesets.py --lite
+
+# PhishTrap local signals
+pip install datasets
+python scripts/build_phishtrap_signals.py
+
+# Chrome Web Store zip
+python scripts/pack_store.py                       # → dist/gosafe-adblock.zip
 ```
 
-## Split allowlist
+GitHub Actions: `.github/workflows/refresh-rulesets.yml` (daily + manual).
 
-- **Full allow** (priority 1000) — streaming, YouTube media stack, CDNs, fonts, Spotify, Canva, Medium
-- **Shell allow** (priority 900) — major sites (`google.com`, `facebook.com`, `apple.com`, …) for `main_frame` / `sub_frame` only, so tracker subdomains can still be blocked or redirected
+### Allowlist model
 
-Build-time `is_allowlisted()` also skips tracker-shaped hosts (`ads.*`, `analytics.*`, `pixel.*`, …) so they remain eligible for blocklists.
+| Mode | Priority | Behavior |
+|------|----------|----------|
+| **Full allow** | ~1000 | Streaming, YouTube media, CDNs, fonts, Spotify, Canva, Medium |
+| **Shell allow** | ~900 | Major sites for `main_frame` / `sub_frame` only — tracker subdomains still blockable |
+| **d3host / redirects** | ~1100+ | Win over broad allow for known tracker hosts |
 
-## Activity log exceptions (Phase C)
+Build-time `is_allowlisted()` skips tracker-shaped hosts (`ads.*`, `analytics.*`, `pixel.*`, …).
 
-Network rows show **rule source**, **rule id**, and **block vs redirect**. Use **Allow** on a row to whitelist the *initiating page* (same as Whitelist mode — trackers stay blocked).
+---
 
-## User rules (Phase D)
+## Project layout
 
-Popup → **Rules**, or open `options/user-rules.html`:
-
+```text
+GOSAFE-extension/
+├── background.js          # Service worker · MessageRouter · DNR · privacy
+├── content.js             # Cosmetics · ProtectionPolicy · DOM flags
+├── page-insights-page.js  # Page Insights UI (on demand)
+├── quiz-assist-page.js    # Quiz Assist
+├── security-page.js       # MAIN · clipboard / permissions / scriptlets
+├── clickguard-page.js     # MAIN · overlay / open / hijack guards
+├── popup/                 # Control UI
+├── options/               # UA + user rules pages
+├── lib/                   # Shared modules (phishing, activity log, page-insights, …)
+├── rules/                 # Compiled DNR JSON
+├── scripts/               # Python ruleset builders
+└── web-accessible-resources/redirects/   # Empty stubs for $redirect-style neuter
 ```
+
+### Core modules (`lib/`)
+
+| Module | Role |
+|--------|------|
+| `ds.js` | `HostKey`, edit distance, LRU cache |
+| `phishing.js` | Risk scorer, navigation guard, TrustScore |
+| `page-insights.js` | Subscription / dark-pattern regexes, health score math |
+| `site-rules.js` | Per-host allow/block → dynamic DNR |
+| `activity-log.js` | Ring buffer + KPIs for the popup |
+| `list-updater.js` | Supplemental list sync |
+| `dns-defense.js` | DNS-layer defense engine |
+| `ai-nvidia.js` | NVIDIA chat helpers (Quiz / QCM) |
+
+---
+
+## Development notes
+
+### User rules
+
+Popup → **Rules**, or `options/user-rules.html`:
+
+```text
 ||tracker.example^
 example.com##.ad-rail
 ##.cookie-banner
 ```
 
-Network lines become dynamic DNR blocks (ids 9600+). Cosmetic lines merge with Hide-element / adaptive cosmetics.
+Network lines → dynamic DNR (ids `9600+`). Cosmetic lines merge with hide-element / adaptive cosmetics.
 
-## Refresh rulesets
+### Compatibility caveats
 
-```bash
-python scripts/refresh_rulesets.py          # d3host + redirects
-python scripts/refresh_rulesets.py --lite   # + lite blocklists
-```
+- YouTube / Spotify ads are largely first-party — handled by page hooks, not raw host blocks on player APIs  
+- Do not block Spotify `spclient` / pathfinder (breaks playback)  
+- Peek-without-login only dismisses walls when content is already in the DOM  
+- Cosmetic exceptions / full EasyList scriptlets are not fully supported  
+- HTTPS upgrade can break rare HTTP-only LAN devices — toggle off if needed  
+- Random UA rewrites the HTTP header (DNR) and in-page `navigator` / Client Hints  
 
-GitHub Actions: `.github/workflows/refresh-rulesets.yml` (daily + manual).
+### Patterns
 
-## Filter sources
+- **Message dispatch** — `Map` of `message.type` → handler in `MessageRouter`  
+- **Feature gating** — missing `data-gosafe-*` attribute counts as **on** (race-safe with `content.js`)  
+- **Session Insights blocks** — DNR rule ids `9700–9799`, opt-in only  
 
-Default **lite** profile (uBlock-style defaults, size-capped):
+---
 
-- [HaGeZi Pro Mini](https://github.com/hagezi/dns-blocklists) (ads / tracking)
-- [HaGeZi Threat Intelligence Mini](https://github.com/hagezi/dns-blocklists) (malware / phishing feeds)
-- [HaGeZi Fake](https://github.com/hagezi/dns-blocklists) (scams / fakes / traps)
-- [HaGeZi Pop-Up Ads](https://github.com/hagezi/dns-blocklists)
-- [EasyList](https://easylist.to/easylist/easylist.txt) / [EasyPrivacy](https://easylist.to/easylist/easyprivacy.txt)
-- [Fanboy Cookie](https://easylist.to/)
-- [uBlock filters](https://github.com/uBlockOrigin/uAssets) (filters, badware, privacy, quick-fixes, unbreak) — same public lists [uBlock Origin](https://github.com/gorhill/uBlock) ships by default
-- [Peter Lowe’s ad servers](https://pgl.yoyo.org/adservers/)
-- [URLhaus malicious hosts](https://gitlab.com/malware-filter/urlhaus-filter)
+## License / credits
 
-GOSAFE adblock is **not** a fork of uBlock Origin. It uses Chrome MV3 `declarativeNetRequest` plus its own page helpers. We only reuse the community filter lists uBO also recommends.
-
-Optional **full** mega-list build (much larger; higher Chrome memory):
-
-```bash
-python scripts/build_blocklists.py --full
-```
-
-Full adds AdGuard DNS, OISD big, HaGeZi Pro, plus the same HaGeZi TIF Mini / Fake / Pop-Up Ads feeds, StevenBlack, GoodbyeAds, and more Fanboy lists (plus the uBO extras above).
-
-## Phishing CSVs (optional)
-
-Uploaded CSVs were quarantined after false positives (Canva/Medium got blocked).
-
-- Quarantine folder: `d:\extension-cache\csv-quarantine`
-- CSV import is **off by default**
-- Only enable if you trust the labels:
-
-```bash
-python scripts/build_blocklists.py --with-csv
-```
-
-## Popup UX (v1.9)
-
-Black-and-white control surface with:
-
-- Master protection toggle + per-site pause
-- Feature switches: cosmetics, click-jack, YouTube/Spotify/Medium helpers, download shield
-- Security: HTTPS, clipboard, scriptlets, WebRTC, permissions, random UA, phishing heuristics, fingerprint shield, list auto-update
-- Per-site **Auto / Whitelist / Block** — Whitelist trusts the site but keeps ads/trackers blocked and Activity monitoring on
-- **Hide element** picker — click any leftover UI on a page to hide it permanently for that site
-- Blocked counter + mode (Full / Custom / Off)
-- Options page for User-Agent pool / auto-renew (inspired by [random-user-agent](https://github.com/tarampampam/random-user-agent))
-
-## OOP modules (`lib/`)
-
-| Module | Structures / algorithms |
-|--------|-------------------------|
-| `lib/ds.js` | `HostKey` suffix walk, Levenshtein DP, LRU `Map` cache |
-| `lib/phishing.js` | Weighted risk scorer + navigation guard |
-| `lib/site-rules.js` | Rule book (longest-suffix) → DNR dynamic sync |
-| `lib/list-updater.js` | Mirror failover fetch → domain set → batched DNR rules |
-| `lib/activity-log.js` | Ring buffer of recent protection events |
-| `fingerprint-page.js` | Session XorShift32 noise for canvas/audio/WebGL |
-
-## Install
-
-1. Open `chrome://extensions`
-2. Enable **Developer mode** → **Load unpacked** → select `d:\extension`
-3. Reload the extension after code or list rebuilds
-
-## Refresh blocklists
-
-```bash
-python scripts/build_blocklists.py --lite
-# or: python scripts/build_blocklists.py --full
-```
-
-Raw downloads stay in `d:\extension-cache` so the unpacked package stays small.
-
-## PhishTrap signals
-
-Local phishing scores use compact thresholds distilled from [saidutta69/PhishTrap](https://huggingface.co/datasets/saidutta69/PhishTrap):
-
-```bash
-pip install datasets
-python scripts/build_phishtrap_signals.py
-```
-
-Writes `rules/phishtrap-signals.json` and `lib/phishtrap-signals.js` (loaded by the service worker).
-
-## Pack for Chrome Web Store
-
-```bash
-python scripts/pack_store.py
-```
-
-Output: `dist/gosafe-adblock.zip` (excludes `_metadata`, scripts, and caches).
-
-## Notes
-
-- YouTube video ads are first-party; player hooks handle skip/seek
-- Spotify audio ads are first-party; page hooks mute and seek/finish short ad clips (≤90s). Network blocks on `spclient` / pathfinder break playback — do not add them
-- Peek without login dismisses signup/login overlays (Quora, FB public pages, X, etc.) when content is already in the page — it cannot invent private feed data
-- Google/YouTube/streaming/Medium/Canva domains are allowlisted so pages load
-- Medium member-only stories are preview-only in the DOM; full text is loaded via a mirror reader
-- Cosmetic exceptions / procedural filters / full EasyList scriptlets are not fully supported
-- HTTPS upgrade may break rare HTTP-only LAN devices — toggle off if needed
-- WebRTC shield uses `chrome.privacy` (`disable_non_proxied_udp`)
-- Random User-Agent rewrites the HTTP header (DNR) and `navigator.userAgent` / Client Hints in-page
+Filter lists belong to their respective authors (HaGeZi, EasyList, uBlock uAssets, AdGuard, etc.).  
+PhishTrap signal thresholds distilled from [saidutta69/PhishTrap](https://huggingface.co/datasets/saidutta69/PhishTrap).  
+UA options inspired by [random-user-agent](https://github.com/tarampampam/random-user-agent).

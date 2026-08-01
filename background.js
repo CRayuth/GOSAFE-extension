@@ -43,6 +43,8 @@
     videoPip: true,
     readerMode: true,
     quizAssist: true,
+    fbAddFriend: true,
+    pageInsights: true,
     aiAssistant: false,
   });
 
@@ -76,7 +78,8 @@
       "lib/activity-log.js",
       "lib/user-rules.js",
       "lib/dns-defense.js",
-      "lib/ai-nvidia.js"
+      "lib/ai-nvidia.js",
+      "lib/page-insights.js"
     );
   } catch (err) {
     console.error("GOSAFE adblock failed to load modules", err);
@@ -1103,6 +1106,184 @@
     }
   }
 
+  /**
+   * Page Insights: site permission manager (contentSettings) + session third-party blocks.
+   * Session DNR rule ids: 9700–9799.
+   */
+  class PageInsightsController {
+    static RULE_BASE = 9700;
+    static RULE_MAX = 100;
+    static PERM_TYPES = Object.freeze([
+      { type: "notifications", label: "Notifications" },
+      { type: "camera", label: "Camera" },
+      { type: "microphone", label: "Microphone" },
+    ]);
+
+    static #resourceTypes = Object.freeze([
+      "script",
+      "xmlhttprequest",
+      "image",
+      "sub_frame",
+      "media",
+      "font",
+      "stylesheet",
+      "websocket",
+      "ping",
+      "other",
+    ]);
+
+    /**
+     * @param {string} origin
+     */
+    static #pattern(origin) {
+      try {
+        const u = new URL(origin);
+        return `${u.origin}/*`;
+      } catch {
+        return "";
+      }
+    }
+
+    /**
+     * @param {string} origin
+     */
+    async getPermissions(origin) {
+      const pattern = PageInsightsController.#pattern(origin);
+      if (!pattern) return { ok: false, error: "bad_origin" };
+      const cs = chrome.contentSettings;
+      if (!cs) return { ok: false, error: "contentSettings_unavailable" };
+
+      const permissions = [];
+      for (const meta of PageInsightsController.PERM_TYPES) {
+        const api = cs[meta.type];
+        if (!api?.get) {
+          permissions.push({ ...meta, setting: "unknown", controllable: false });
+          continue;
+        }
+        try {
+          const details = await new Promise((resolve, reject) => {
+            try {
+              api.get({ primaryUrl: origin }, (d) => {
+                const err = chrome.runtime.lastError;
+                if (err) reject(new Error(err.message));
+                else resolve(d);
+              });
+            } catch (e) {
+              reject(e);
+            }
+          });
+          permissions.push({
+            ...meta,
+            setting: String(details?.setting || "ask"),
+            controllable: true,
+          });
+        } catch (err) {
+          permissions.push({
+            ...meta,
+            setting: "error",
+            controllable: false,
+            error: String(err?.message || err),
+          });
+        }
+      }
+      return { ok: true, origin, permissions };
+    }
+
+    /**
+     * @param {string} origin
+     * @param {string} permission
+     * @param {string} setting
+     */
+    async setPermission(origin, permission, setting) {
+      const pattern = PageInsightsController.#pattern(origin);
+      if (!pattern) return { ok: false, error: "bad_origin" };
+      const allowedType = PageInsightsController.PERM_TYPES.some((p) => p.type === permission);
+      if (!allowedType) return { ok: false, error: "unsupported_permission" };
+      const setTo = setting === "allow" || setting === "block" || setting === "ask" ? setting : "";
+      if (!setTo) return { ok: false, error: "bad_setting" };
+      const api = chrome.contentSettings?.[permission];
+      if (!api?.set) return { ok: false, error: "contentSettings_unavailable" };
+      try {
+        await new Promise((resolve, reject) => {
+          try {
+            api.set({ primaryPattern: pattern, setting: setTo }, () => {
+              const err = chrome.runtime.lastError;
+              if (err) reject(new Error(err.message));
+              else resolve();
+            });
+          } catch (e) {
+            reject(e);
+          }
+        });
+        return { ok: true, permission, setting: setTo };
+      } catch (err) {
+        return { ok: false, error: String(err?.message || err) };
+      }
+    }
+
+    /**
+     * Session-scoped block of third-party hosts (opt-in from Page Insights panel).
+     * @param {string[]} hosts
+     * @param {string} [pageHost]
+     */
+    async blockThirdPartiesSession(hosts, pageHost = "") {
+      const page = String(pageHost || "")
+        .replace(/^www\./i, "")
+        .toLowerCase();
+      const cleaned = [
+        ...new Set(
+          (Array.isArray(hosts) ? hosts : [])
+            .map((h) =>
+              String(h || "")
+                .replace(/^www\./i, "")
+                .toLowerCase()
+                .replace(/[^a-z0-9.-]/g, "")
+            )
+            .filter(
+              (h) =>
+                h &&
+                h.includes(".") &&
+                h !== page &&
+                !page.endsWith(`.${h}`) &&
+                !h.endsWith(`.${page}`)
+            )
+        ),
+      ].slice(0, PageInsightsController.RULE_MAX);
+
+      const removeRuleIds = [];
+      for (let i = 0; i < PageInsightsController.RULE_MAX; i += 1) {
+        removeRuleIds.push(PageInsightsController.RULE_BASE + i);
+      }
+
+      const addRules = cleaned.map((host, i) => ({
+        id: PageInsightsController.RULE_BASE + i,
+        priority: 55,
+        action: { type: "block" },
+        condition: {
+          requestDomains: [host],
+          resourceTypes: [...PageInsightsController.#resourceTypes],
+        },
+      }));
+
+      try {
+        if (chrome.declarativeNetRequest.updateSessionRules) {
+          await chrome.declarativeNetRequest.updateSessionRules({
+            removeRuleIds,
+            addRules,
+          });
+        } else {
+          await chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds,
+            addRules,
+          });
+        }
+        return { ok: true, count: cleaned.length, hosts: cleaned };
+      } catch (err) {
+        return { ok: false, error: String(err?.message || err) };
+      }
+    }
+  }
+
   /** Privacy Badger–style GPC + Do Not Track request headers. */
   class PrivacySignalsController {
     static RULE_ID = 9402;
@@ -1521,6 +1702,8 @@
       "videoPip",
       "readerMode",
       "quizAssist",
+      "fbAddFriend",
+      "pageInsights",
       "aiAssistant",
     ]);
 
@@ -2034,6 +2217,55 @@
           });
           return true;
         }],
+        ["getPagePermissions", (message, sendResponse) => {
+          this._store.getStatus().then(async (status) => {
+            if (!status.enabled || status.features.pageInsights === false) {
+              sendResponse({ ok: false, disabled: true });
+              return;
+            }
+            const origin = String(message.origin || "");
+            sendResponse(await pageInsights.getPermissions(origin));
+          });
+          return true;
+        }],
+        ["setPagePermission", (message, sendResponse) => {
+          this._store.getStatus().then(async (status) => {
+            if (!status.enabled || status.features.pageInsights === false) {
+              sendResponse({ ok: false, disabled: true });
+              return;
+            }
+            sendResponse(
+              await pageInsights.setPermission(
+                String(message.origin || ""),
+                String(message.permission || ""),
+                String(message.setting || "")
+              )
+            );
+          });
+          return true;
+        }],
+        ["blockThirdPartiesSession", (message, sendResponse) => {
+          this._store.getStatus().then(async (status) => {
+            if (!status.enabled || status.features.pageInsights === false) {
+              sendResponse({ ok: false, disabled: true });
+              return;
+            }
+            const result = await pageInsights.blockThirdPartiesSession(
+              message.hosts,
+              String(message.pageHost || "")
+            );
+            if (result.ok && activityLog) {
+              activityLog.append({
+                kind: globalThis.AblActivityLog.ActivityLogStore.kinds.feature,
+                title: "Session third-party block",
+                detail: `${result.count || 0} host(s)`,
+                host: String(message.pageHost || ""),
+              });
+            }
+            sendResponse(result);
+          });
+          return true;
+        }],
         ["getDnsDefenseStatus", (_message, sendResponse) => {
           this._store.getStatus().then((status) => {
             if (!status.enabled || status.features.dnsDefense === false) {
@@ -2463,6 +2695,7 @@
   const minerBlock = new MinerBlockController();
   const strictTracking = new StrictTrackingController();
   const privacySignals = new PrivacySignalsController();
+  const pageInsights = new PageInsightsController();
   const forceEnglish = new ForceEnglishController();
   const siteFeatureOverrides = new SiteFeatureOverrideStore();
   const privacyMode = new PrivacyModeController(store);
@@ -2794,6 +3027,7 @@
       if (rulesetId === "spotify") return "Spotify";
       if (rulesetId === "_dynamic" || rulesetId === "_session") {
         if (ruleId >= 10000) return "Live phishing / NRD";
+        if (ruleId >= 9700 && ruleId < 9800) return "Page Insights session block";
         if (ruleId >= 9600 && ruleId < 9700) return "User rules";
         if (ruleId >= 9500 && ruleId < 9600) return "Learned trackers";
         if (ruleId === 9300) return "Miner block";

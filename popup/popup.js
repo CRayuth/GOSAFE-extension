@@ -39,6 +39,8 @@
     videoPip: true,
     readerMode: true,
     quizAssist: true,
+    fbAddFriend: true,
+    pageInsights: true,
     aiAssistant: false,
   });
 
@@ -233,6 +235,8 @@
         videoPip: document.getElementById("featVideoPip"),
         readerMode: document.getElementById("featReaderMode"),
         quizAssist: document.getElementById("featQuizAssist"),
+        fbAddFriend: document.getElementById("featFbAddFriend"),
+        pageInsights: document.getElementById("featPageInsights"),
       };
       this.profileHover = document.getElementById("profileHover");
       this.profileTrigger = document.getElementById("profileTrigger");
@@ -250,6 +254,11 @@
       this.trustChecks = document.getElementById("trustChecks");
       this.trustVerdict = document.getElementById("trustVerdict");
       this.trustReasons = document.getElementById("trustReasons");
+      this.healthCard = document.getElementById("healthCard");
+      this.healthBadge = document.getElementById("healthBadge");
+      this.healthHost = document.getElementById("healthHost");
+      this.healthIssues = document.getElementById("healthIssues");
+      this.healthVerdict = document.getElementById("healthVerdict");
       this.privacyModeBtn = document.getElementById("privacyModeBtn");
       this.featWebrtcHint = document.getElementById("featWebrtcHint");
       this.featWebrtcRow = document.getElementById("featWebrtcRow");
@@ -685,6 +694,67 @@
     }
 
     /**
+     * @param {{
+     *   ok?: boolean,
+     *   disabled?: boolean,
+     *   health?: { score?: number, verdict?: string, topIssues?: string[] },
+     *   host?: string,
+     * } | null} report
+     */
+    renderPageHealth(report) {
+      if (!this.healthCard) return;
+      if (!report || report.disabled || !report.ok || report.health?.score == null) {
+        this.healthCard.hidden = true;
+        return;
+      }
+      this.healthCard.hidden = false;
+      const score = Number(report.health.score) || 0;
+      const verdict =
+        report.health.verdict === "good" ||
+        report.health.verdict === "fair" ||
+        report.health.verdict === "poor"
+          ? report.health.verdict
+          : score >= 70
+            ? "good"
+            : score >= 45
+              ? "fair"
+              : "poor";
+      if (this.healthBadge) {
+        this.healthBadge.textContent = String(score);
+        this.healthBadge.classList.remove("is-good", "is-mid", "is-bad");
+        this.healthBadge.classList.add(
+          verdict === "good" ? "is-good" : verdict === "fair" ? "is-mid" : "is-bad"
+        );
+      }
+      if (this.healthHost) this.healthHost.textContent = report.host || "—";
+      if (this.healthVerdict) {
+        this.healthVerdict.hidden = false;
+        this.healthVerdict.className = `trust-verdict is-${
+          verdict === "good" ? "safe" : verdict === "fair" ? "caution" : "block"
+        }`;
+        this.healthVerdict.textContent =
+          verdict === "good" ? "Healthy" : verdict === "fair" ? "Fair" : "Needs attention";
+      }
+      if (this.healthIssues) {
+        this.healthIssues.replaceChildren();
+        const issues = (report.health.topIssues || []).slice(0, 3);
+        if (!issues.length) {
+          const li = document.createElement("li");
+          li.className = "is-ok";
+          li.textContent = "No major health issues";
+          this.healthIssues.append(li);
+        } else {
+          for (const label of issues) {
+            const li = document.createElement("li");
+            li.className = "is-warn";
+            li.textContent = label;
+            this.healthIssues.append(li);
+          }
+        }
+      }
+    }
+
+    /**
      * @param {{ conflict?: boolean, applied?: boolean, error?: string } | null} status
      */
     renderWebRtcStatus(status) {
@@ -1030,6 +1100,23 @@
         this._view.renderTrustScore(null);
       }
       try {
+        if (this._site.host && status.features.pageInsights !== false && status.enabled) {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab?.id) {
+            const health = await chrome.tabs.sendMessage(tab.id, {
+              type: "getPageInsightsSummary",
+            });
+            this._view.renderPageHealth(health);
+          } else {
+            this._view.renderPageHealth(null);
+          }
+        } else {
+          this._view.renderPageHealth(null);
+        }
+      } catch {
+        this._view.renderPageHealth(null);
+      }
+      try {
         const webrtcStatus = await chrome.runtime.sendMessage({ type: "getWebRtcStatus" });
         this._view.renderWebRtcStatus(webrtcStatus);
       } catch {
@@ -1157,6 +1244,17 @@
 
       this._view.openUaOptions?.addEventListener("click", () => {
         chrome.runtime.openOptionsPage();
+      });
+
+      this._view.healthCard?.addEventListener("click", async () => {
+        try {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (!tab?.id) return;
+          await chrome.tabs.sendMessage(tab.id, { type: "openPageInsights" });
+          window.close();
+        } catch {
+          // content script missing
+        }
       });
 
       this._view.openUserRules?.addEventListener("click", () => {

@@ -1812,7 +1812,14 @@
         "canvaslms.com",
         "blackboard.com",
         "brightspace.com",
-        "schoology.com"
+        "schoology.com",
+        "facebook.com",
+        "fb.com",
+        "messenger.com",
+        "instagram.com",
+        "meta.com",
+        "threads.net",
+        "whatsapp.com"
       ],
       "excludedInitiatorDomains": [
         "edu.kh",
@@ -1822,7 +1829,14 @@
         "canvaslms.com",
         "blackboard.com",
         "brightspace.com",
-        "schoology.com"
+        "schoology.com",
+        "facebook.com",
+        "fb.com",
+        "messenger.com",
+        "instagram.com",
+        "meta.com",
+        "threads.net",
+        "whatsapp.com"
       ]
     }
   }

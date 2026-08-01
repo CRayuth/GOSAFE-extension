@@ -90,6 +90,25 @@ RESOURCE_TYPES = [
     "other",
 ]
 
+# Do not strip query params on these hosts (friend/fr flows, LMS ids, etc.)
+EXCLUDE_DOMAINS = [
+    "edu.kh",
+    "ccun.edu.kh",
+    "moodle.ccun.edu.kh",
+    "instructure.com",
+    "canvaslms.com",
+    "blackboard.com",
+    "brightspace.com",
+    "schoology.com",
+    "facebook.com",
+    "fb.com",
+    "messenger.com",
+    "instagram.com",
+    "meta.com",
+    "threads.net",
+    "whatsapp.com",
+]
+
 
 def fetch() -> str:
     CACHE.parent.mkdir(parents=True, exist_ok=True)
@@ -165,6 +184,8 @@ def make_rules(params: set[str]) -> list[dict]:
                 "condition": {
                     "resourceTypes": RESOURCE_TYPES,
                     "urlFilter": "?",
+                    "excludedRequestDomains": list(EXCLUDE_DOMAINS),
+                    "excludedInitiatorDomains": list(EXCLUDE_DOMAINS),
                 },
             }
         )

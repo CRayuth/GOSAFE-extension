@@ -86,6 +86,19 @@
         <ul class="trust-reasons" id="trustReasons" hidden></ul>
       </section>
 
+      <section class="trust-card health-card" id="healthCard" hidden>
+        <div class="trust-top">
+          <span class="trust-badge" id="healthBadge">—</span>
+          <div class="trust-copy">
+            <strong>Page Health</strong>
+            <small id="healthHost">—</small>
+          </div>
+        </div>
+        <div class="trust-verdict" id="healthVerdict" hidden>Healthy</div>
+        <ul class="trust-checks" id="healthIssues"></ul>
+        <p class="health-hint">Click to open full insights on this page · Esc / ✕ closes</p>
+      </section>
+
       <button id="privacyModeBtn" type="button" class="privacy-cta">
         <span class="nav-left">
           <i class="fa-solid fa-user-shield"></i>
@@ -596,6 +609,30 @@
               </span>
             </span>
             <input id="featReaderMode" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-user-plus"></i>
+              <span class="nav-copy">
+                <strong>Facebook Add Friend</strong>
+                <small>Show Add Friend on creator / Follow-only profiles</small>
+              </span>
+            </span>
+            <input id="featFbAddFriend" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-heart-pulse"></i>
+              <span class="nav-copy">
+                <strong>Page Insights</strong>
+                <small>Privacy receipt, dark patterns, permissions, health score</small>
+              </span>
+            </span>
+            <input id="featPageInsights" type="checkbox" checked />
             <span class="mini-switch"></span>
           </label>
 
