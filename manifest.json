@@ -54,6 +54,11 @@
         "path": "rules/allowlist.json"
       },
       {
+        "id": "d3host",
+        "enabled": true,
+        "path": "rules/d3host.json"
+      },
+      {
         "id": "protections",
         "enabled": true,
         "path": "rules/protections.json"

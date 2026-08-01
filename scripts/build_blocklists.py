@@ -1153,7 +1153,7 @@ def update_manifest(ruleset_ids: list[str], block_count: int, cos_count: int) ->
     """Patch DNR resources only — never wipe name/permissions/content_scripts."""
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
-    hand_tuned = ["allowlist", "protections", "https_upgrade"]
+    hand_tuned = ["allowlist", "d3host", "protections", "https_upgrade"]
     resources = []
     for rid in hand_tuned:
         path = RULES_DIR / f"{rid}.json"

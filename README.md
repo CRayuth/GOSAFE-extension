@@ -27,6 +27,17 @@ Each script is a small composition of classes — data objects, algorithms, and 
 - **Controllers** — one app entry per script (`ContentController`, `MediumUnlockController`, …)
 - **Message dispatch table** — `Map` of command → handler in the background worker
 
+## d3ward Ad Block Test hosts
+
+High-priority DNR ruleset (`rules/d3host.json`, priority **1100**) blocks the
+[d3ward d3host](https://github.com/d3ward/toolz) domains — including tracker
+subdomains that would otherwise win via the broad site allowlist (priority 1000),
+e.g. `analytics.google.com`, `log.fc.yahoo.com`, `ads.youtube.com`.
+
+```bash
+python scripts/build_d3host.py
+```
+
 ## Filter sources
 
 Default **lite** profile (uBlock-style defaults, size-capped):
