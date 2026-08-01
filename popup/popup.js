@@ -32,6 +32,14 @@
     securityWatch: true,
     trackerLearn: true,
     privacySignals: true,
+    dnsDefense: true,
+    forceEnglish: true,
+    linkPreview: true,
+    textSelection: true,
+    videoPip: true,
+    readerMode: true,
+    quizAssist: true,
+    aiAssistant: false,
   });
 
   const PROFILE_HINTS = Object.freeze({
@@ -218,6 +226,13 @@
         securityWatch: document.getElementById("featSecWatch"),
         trackerLearn: document.getElementById("featTrackerLearn"),
         privacySignals: document.getElementById("featPrivacySignals"),
+        dnsDefense: document.getElementById("featDnsDefense"),
+        forceEnglish: document.getElementById("featForceEnglish"),
+        linkPreview: document.getElementById("featLinkPreview"),
+        textSelection: document.getElementById("featTextSelection"),
+        videoPip: document.getElementById("featVideoPip"),
+        readerMode: document.getElementById("featReaderMode"),
+        quizAssist: document.getElementById("featQuizAssist"),
       };
       this.profileHover = document.getElementById("profileHover");
       this.profileTrigger = document.getElementById("profileTrigger");
@@ -228,6 +243,7 @@
       this.uaPreview = document.getElementById("uaPreview");
       this.uaRenew = document.getElementById("uaRenew");
       this.openUaOptions = document.getElementById("openUaOptions");
+      this.openUserRules = document.getElementById("openUserRules");
       this.trustCard = document.getElementById("trustCard");
       this.trustBadge = document.getElementById("trustBadge");
       this.trustHost = document.getElementById("trustHost");
@@ -332,7 +348,10 @@
       const blocked = kpis.lifetimeBlocked ?? kpis.blocked ?? 0;
       const guards = (kpis.hijack || 0) + (kpis.soft_nav || 0) + (kpis.login_wall || 0);
       const security =
-        (kpis.phishing || 0) + (kpis.download || 0) + (kpis.site_block || 0);
+        (kpis.phishing || 0) +
+        (kpis.download || 0) +
+        (kpis.site_block || 0) +
+        (kpis.dns || 0);
 
       this.kpiBlocked.textContent = fmt(blocked);
       this.kpiGuards.textContent = fmt(guards);
@@ -407,8 +426,13 @@
       if (entry.watched) lines.push(`<span>Watch: whitelisted site — tracker still blocked</span>`);
       if (entry.url) lines.push(`<span>URL: ${entry.url}</span>`);
       if (entry.type) lines.push(`<span>Type: ${entry.type}</span>`);
+      if (entry.action) lines.push(`<span>Action: ${entry.action}</span>`);
+      if (entry.ruleId) lines.push(`<span>Rule #${entry.ruleId}</span>`);
       if (entry.source) lines.push(`<span>Source: ${entry.source}</span>`);
       else if (entry.ruleset) lines.push(`<span>Ruleset: ${entry.ruleset}</span>`);
+      if (entry.tip) {
+        lines.push(`<span class="siem-tip-advice">${escape(entry.tip)}</span>`);
+      }
       tip.innerHTML = lines.join("");
       tip.classList.add("is-on");
       const pad = 8;
@@ -422,6 +446,14 @@
       }
       if (rect.bottom > window.innerHeight - pad) {
         tip.style.top = `${Math.max(pad, event.clientY - rect.height - 12)}px`;
+      }
+
+      function escape(s) {
+        return String(s || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
       }
     }
 
@@ -471,7 +503,7 @@
         all: null,
         network: new Set(["blocked"]),
         guards: new Set(["hijack", "soft_nav", "login_wall"]),
-        security: new Set(["phishing", "download", "site_block", "site_rule"]),
+        security: new Set(["phishing", "download", "site_block", "site_rule", "dns"]),
         system: new Set([
           "system",
           "feature",
@@ -505,13 +537,37 @@
         const host = entry.host || entry.title || entry.kind || "—";
         const from = entry.initiator || (entry.kind === "blocked" ? "—" : entry.detail || "—");
         const count = entry.kind === "blocked" ? String(entry.count || 1) : "·";
+        const exceptHost = entry.initiator || "";
 
         tr.innerHTML = `
-          <td title="">${escapeHtml(String(host).slice(0, 42))}${entry.watched ? ' <span class="watch-tag">watch</span>' : ""}</td>
+          <td title="">${escapeHtml(String(host).slice(0, 42))}${entry.watched ? ' <span class="watch-tag">watch</span>' : ""}${entry.action === "redirect" ? ' <span class="redir-tag">redir</span>' : ""}</td>
           <td class="col-from">${escapeHtml(String(from).slice(0, 28))}</td>
           <td class="col-count">${escapeHtml(count)}</td>
           <td class="col-age">${escapeHtml(timeAgo(entry.ts))}</td>
+          <td class="col-act"></td>
         `;
+        if (entry.kind === "blocked" && exceptHost) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "log-except";
+          btn.title = `Whitelist ${exceptHost} (keeps ads blocked)`;
+          btn.textContent = "Allow";
+          btn.addEventListener("click", async (ev) => {
+            ev.stopPropagation();
+            btn.disabled = true;
+            try {
+              await chrome.runtime.sendMessage({
+                type: "exceptionFromLog",
+                host: exceptHost,
+              });
+              btn.textContent = "OK";
+            } catch {
+              btn.disabled = false;
+              btn.textContent = "Err";
+            }
+          });
+          tr.querySelector(".col-act")?.append(btn);
+        }
         tr.addEventListener("mouseenter", (ev) => this.#showTip(ev, entry));
         tr.addEventListener("mousemove", (ev) => this.#showTip(ev, entry));
         tr.addEventListener("mouseleave", () => this.#hideTip());
@@ -1101,6 +1157,11 @@
 
       this._view.openUaOptions?.addEventListener("click", () => {
         chrome.runtime.openOptionsPage();
+      });
+
+      this._view.openUserRules?.addEventListener("click", () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL("options/user-rules.html") });
+        window.close();
       });
 
       this._view.uaRenew?.addEventListener("click", async () => {

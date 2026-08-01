@@ -187,7 +187,41 @@
   }
 
   class FingerprintGuardApp {
+    static isSoftPageExempt() {
+      const host = (location.hostname || "").replace(/^www\./, "").toLowerCase();
+      if (host === "gmail.com" || host.endsWith(".gmail.com")) return true;
+      if (
+        (host === "google.com" || host.endsWith(".google.com")) &&
+        /^(mail|accounts|docs|drive|calendar|meet|chat|contacts|photos|sheets|slides|classroom|keep|script|sites|admin|myaccount|workspace|ogs|hangouts|inbox|tasks|news|play)\./i.test(
+          host
+        )
+      ) {
+        return true;
+      }
+      if (
+        /(^|\.)(facebook\.com|fb\.com|messenger\.com|instagram\.com|meta\.com|threads\.net|whatsapp\.com)$/i.test(
+          host
+        )
+      ) {
+        return true;
+      }
+      if (/(^|\.)(nvidia\.com|nvidiagrid\.net|auth0\.com)$/i.test(host)) return true;
+      if (/\.edu(\.[a-z]{2})?$/i.test(host) || /\.ac\.[a-z]{2}$/i.test(host)) return true;
+      if (
+        /^(moodle|canvas|blackboard|brightspace|schoology|classroom|elearning|e-learning|lms)\./i.test(
+          host
+        )
+      ) {
+        return true;
+      }
+      if (/moodle|elearning|instructure\.com|blackboard|brightspace|schoology/i.test(host)) {
+        return true;
+      }
+      return false;
+    }
+
     start() {
+      if (FingerprintGuardApp.isSoftPageExempt()) return;
       const rng = new XorShift32(SessionSeed.read());
       new CanvasNoise(rng).install();
       new AudioNoise(rng).install();

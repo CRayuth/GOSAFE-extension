@@ -12,7 +12,8 @@
       const root = document.documentElement;
       if (!root) return false;
       if (root.getAttribute("data-adblock-lite") === "off") return false;
-      return root.getAttribute(UaJsSpoof.#FLAG) !== "off";
+      // Require explicit "on" — missing attribute must not spoof (breaks NVIDIA/Meta/Gmail).
+      return root.getAttribute(UaJsSpoof.#FLAG) === "on";
     }
 
     static currentUa() {

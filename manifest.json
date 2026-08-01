@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GOSAFE adblock",
-  "version": "1.18.0",
-  "description": "GOSAFE adblock \u2014 learned tracker blocking, GPC/DNT, and security assistant. (327,785 domains, 37,290 cosmetics).",
+  "version": "1.26.23",
+  "description": "GOSAFE adblock \u2014 tracker blocking, DNS defense, Force English, link preview, text selection (QCM + NVIDIA), video PiP, reader mode, Quiz Assist (Kahoot bank + NVIDIA), and security assistant.",
   "permissions": [
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",
@@ -59,6 +59,16 @@
         "path": "rules/d3host.json"
       },
       {
+        "id": "redirects",
+        "enabled": true,
+        "path": "rules/redirects.json"
+      },
+      {
+        "id": "trackparams",
+        "enabled": true,
+        "path": "rules/trackparams.json"
+      },
+      {
         "id": "protections",
         "enabled": true,
         "path": "rules/protections.json"
@@ -90,12 +100,28 @@
       }
     ]
   },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "web-accessible-resources/redirects/*",
+        "icons/icon16.png",
+        "icons/icon32.png",
+        "icons/icon48.png",
+        "icons/mylogo-64.png",
+        "icons/default_logo.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
   "content_scripts": [
     {
       "matches": [
         "<all_urls>"
       ],
       "js": [
+        "lib/page-tech-probe.js",
         "content.js"
       ],
       "run_at": "document_start",
@@ -140,6 +166,68 @@
       ],
       "js": [
         "security-assistant.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "force-english-page.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "link-preview-page.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "text-selection-page.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "reader-mode-page.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*.kahoot.it/*",
+        "*://kahoot.it/*"
+      ],
+      "js": [
+        "quiz-assist-hook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "quiz-assist-page.js"
       ],
       "run_at": "document_idle",
       "all_frames": false

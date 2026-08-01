@@ -44,6 +44,78 @@
       );
     }
 
+    /** Gmail / Docs / Drive / Meet — page hooks break Gmail (#2014). */
+    static isGoogleApp() {
+      const host = SiteContext.hostname();
+      if (host === "gmail.com" || host.endsWith(".gmail.com")) return true;
+      if (host === "googleusercontent.com" || host.endsWith(".googleusercontent.com")) {
+        return true;
+      }
+      if (!(host === "google.com" || host.endsWith(".google.com"))) return false;
+      return /^(mail|accounts|docs|drive|calendar|meet|chat|contacts|photos|sheets|slides|classroom|keep|script|sites|admin|myaccount|workspace|ogs|hangouts|inbox|tasks|news|play)\./i.test(
+        host
+      );
+    }
+
+    /** Facebook / Messenger / Instagram — overlays + scriptlets corrupt buttons. */
+    static isMetaApp() {
+      const host = SiteContext.hostname();
+      return (
+        host === "facebook.com" ||
+        host.endsWith(".facebook.com") ||
+        host === "fb.com" ||
+        host.endsWith(".fb.com") ||
+        host === "messenger.com" ||
+        host.endsWith(".messenger.com") ||
+        host === "instagram.com" ||
+        host.endsWith(".instagram.com") ||
+        host === "meta.com" ||
+        host.endsWith(".meta.com") ||
+        host === "threads.net" ||
+        host.endsWith(".threads.net") ||
+        host === "whatsapp.com" ||
+        host.endsWith(".whatsapp.com")
+      );
+    }
+
+    /** NVIDIA developer / account portals — heavy SPA, same breakage as Meta. */
+    static isNvidiaApp() {
+      const host = SiteContext.hostname();
+      return (
+        host === "nvidia.com" ||
+        host.endsWith(".nvidia.com") ||
+        host === "nvidiagrid.net" ||
+        host.endsWith(".nvidiagrid.net") ||
+        host === "auth0.com" ||
+        host.endsWith(".auth0.com")
+      );
+    }
+
+    /** School LMS / .edu — trackparams must not strip `id`; keep hooks light. */
+    static isEducationLms() {
+      const h = SiteContext.hostname();
+      if (/\.edu(\.[a-z]{2})?$/i.test(h) || /\.ac\.[a-z]{2}$/i.test(h)) return true;
+      if (
+        /^(moodle|canvas|blackboard|brightspace|schoology|classroom|elearning|e-learning|lms)\./i.test(
+          h
+        )
+      ) {
+        return true;
+      }
+      return /moodle|elearning|instructure\.com|blackboard|brightspace|schoology/i.test(h);
+    }
+
+    /** Skip invasive MAIN-world / cosmetics hooks on fragile product UIs. */
+    static isSoftPageExempt() {
+      return (
+        SiteContext.isGoogleApp() ||
+        SiteContext.isMetaApp() ||
+        SiteContext.isNvidiaApp() ||
+        SiteContext.isCanva() ||
+        SiteContext.isEducationLms()
+      );
+    }
+
     /** Suffix array of domain labels for longest→shortest host matching. */
     static hostnameVariants(hostname = location.hostname) {
       const host = (hostname || "").replace(/^www\./, "").toLowerCase();
@@ -60,13 +132,17 @@
       const host = (location.hostname || "").toLowerCase();
       const path = (location.pathname || "").toLowerCase();
       if (
-        /anime|stream|sport|movie|film|watch|series|episode|vid(eo)?|play|manga|hentai|drama|kino|mov\.|fullhd|jwplayer|jwpcdn|streameast|streamseast|totalsportek|sportsurge|flix|fmovies|soap2/i.test(
+        /anime|stream|sport|soccer|football|basket|hockey|tennis|fight|boxing|ufc|live|liveru|livetv|movie|film|watch|series|episode|vid(eo)?|play|manga|hentai|drama|kino|mov\.|fullhd|khhd|jwplayer|jwpcdn|streameast|streamseast|totalsportek|sportsurge|buffstream|crackstream|weakstream|flix|fmovies|soap2|rpmvip|rbtv|rbtvplus|superabbit|rbgoal|goaloo|bongdalu/i.test(
           host
         )
       ) {
         return true;
       }
-      if (/\/(title|watch|movie|tv|embed|player|episode)\b/i.test(path)) {
+      if (
+        /\/(title|watch|movie|tv|embed|player|episode|soccer|football|live|match|stream)\b/i.test(
+          path
+        )
+      ) {
         return true;
       }
       try {
@@ -87,8 +163,20 @@
         host.startsWith("stream.") ||
         host.endsWith(".jwpcdn.com") ||
         host === "jwpcdn.com" ||
-        /^(filemoon|streamtape|streamwish|dood|rabbitstream|megacloud|vidsrc|kwik)\./i.test(host)
+        host.endsWith(".rpmvip.com") ||
+        host === "rpmvip.com" ||
+        /^(filemoon|streamtape|streamwish|dood|rabbitstream|megacloud|vidsrc|kwik|seehd\d*)\./i.test(
+          host
+        )
       );
+    }
+
+    /** UA spoof / Force English break these shopping & CN app sites. */
+    static isFragileCommerce() {
+      const host = SiteContext.hostname();
+      return /(^|\.)(taobao\.com|tmall\.com|tmall\.hk|alibaba\.com|alicdn\.com|aliexpress\.com|alipay\.com|1688\.com|jd\.com|jd\.hk|qq\.com|weixin\.qq\.com|wechat\.com|baidu\.com|bilibili\.com|hdslb\.com)$/i.test(
+        host
+      ) || /taobao|tmall|alicdn|aliexpress|alipay|1688\.com|\.jd\.|bilibili|hdslb/i.test(host);
     }
 
     static isPlayerChrome(el) {
@@ -133,6 +221,14 @@
       securityWatch: true,
       trackerLearn: true,
       privacySignals: true,
+      dnsDefense: true,
+      forceEnglish: true,
+      linkPreview: true,
+      textSelection: true,
+      videoPip: true,
+      readerMode: true,
+      quizAssist: true,
+      aiAssistant: false,
     });
 
     /**
@@ -236,10 +332,15 @@
       const lightish = profile === "speed" || profile === "light";
       const on = (v) => (this.active && v ? "on" : "off");
       // Speed/Light skip expensive page spoofing (keeps network blocking).
-      const uaOn = !lightish && this.features.randomUa;
-      const fpOn = !lightish && this.features.fingerprintGuard;
+      // Fragile commerce / soft-exempt / live-stream SPAs must never see a spoofed UA.
+      const fragileHost =
+        SiteContext.isFragileCommerce() ||
+        SiteContext.isSoftPageExempt() ||
+        SiteContext.isMediaSite();
+      const uaOn = !lightish && this.features.randomUa && !fragileHost;
+      const fpOn = !lightish && this.features.fingerprintGuard && !fragileHost;
       root.setAttribute("data-adblock-lite", this.active ? "on" : "off");
-      root.setAttribute("data-adblock-lite-clickguard", on(this.features.clickGuard));
+      root.setAttribute("data-adblock-lite-clickguard", on(this.features.clickGuard && !SiteContext.isSoftPageExempt()));
       root.setAttribute("data-adblock-lite-youtube", on(this.features.youtubeSkip));
       root.setAttribute(
         "data-adblock-lite-spotify",
@@ -247,19 +348,48 @@
       );
       root.setAttribute(
         "data-adblock-lite-loginwall",
-        on(this.features.loginWallBypass !== false)
+        on(this.features.loginWallBypass !== false && !SiteContext.isSoftPageExempt())
       );
-      root.setAttribute("data-adblock-lite-clipboard", on(this.features.clipboardGuard));
-      root.setAttribute("data-adblock-lite-scriptlets", on(this.features.scriptlets));
-      root.setAttribute("data-adblock-lite-permissions", on(this.features.permissionGuard));
+      root.setAttribute(
+        "data-adblock-lite-clipboard",
+        on(this.features.clipboardGuard && !SiteContext.isSoftPageExempt())
+      );
+      root.setAttribute(
+        "data-adblock-lite-scriptlets",
+        on(this.features.scriptlets && !SiteContext.isSoftPageExempt())
+      );
+      root.setAttribute(
+        "data-adblock-lite-permissions",
+        on(this.features.permissionGuard && !SiteContext.isSoftPageExempt())
+      );
       root.setAttribute("data-adblock-lite-https", on(this.features.httpsUpgrade));
       root.setAttribute("data-adblock-lite-randomua", on(uaOn));
       root.setAttribute("data-adblock-lite-fingerprint", on(fpOn));
       root.setAttribute("data-adblock-lite-profile", profile);
-      root.setAttribute("data-adblock-lite-cookie", on(this.features.cookieConsent !== false));
-      root.setAttribute("data-adblock-lite-popup", on(this.features.popupBlocker !== false));
-      root.setAttribute("data-adblock-lite-antiadblock", on(this.features.antiAdblock !== false));
-      root.setAttribute("data-adblock-lite-autoplay", on(this.features.autoplayBlock !== false));
+      root.setAttribute(
+        "data-adblock-lite-cookie",
+        on(this.features.cookieConsent !== false && !SiteContext.isSoftPageExempt())
+      );
+      root.setAttribute(
+        "data-adblock-lite-popup",
+        on(this.features.popupBlocker !== false && !SiteContext.isSoftPageExempt())
+      );
+      root.setAttribute(
+        "data-adblock-lite-antiadblock",
+        on(this.features.antiAdblock !== false && !SiteContext.isSoftPageExempt())
+      );
+      // Live / pirate-stream players need programmatic play(); never force-pause them.
+      // Meta feed/stories also rely on autoplay + play() — never block there.
+      const autoplayOn =
+        this.features.autoplayBlock !== false &&
+        !SiteContext.isMediaSite() &&
+        !SiteContext.isStreamEmbed() &&
+        !SiteContext.isMetaApp();
+      root.setAttribute("data-adblock-lite-autoplay", on(autoplayOn));
+      root.setAttribute(
+        "data-adblock-lite-stream",
+        SiteContext.isMediaSite() || SiteContext.isStreamEmbed() ? "on" : "off"
+      );
       root.setAttribute(
         "data-adblock-lite-quiet",
         this.active && this.features.quietMode ? "on" : "off"
@@ -274,8 +404,37 @@
       );
       root.setAttribute(
         "data-adblock-lite-secwatch",
-        on(this.features.securityWatch !== false)
+        on(this.features.securityWatch !== false && !SiteContext.isSoftPageExempt())
       );
+      root.setAttribute(
+        "data-gosafe-force-english",
+        on(this.features.forceEnglish !== false && !SiteContext.isSoftPageExempt())
+      );
+      root.setAttribute(
+        "data-gosafe-link-preview",
+        on(this.features.linkPreview !== false && !SiteContext.isSoftPageExempt())
+      );
+      root.setAttribute(
+        "data-gosafe-text-selection",
+        on(this.features.textSelection !== false && !SiteContext.isSoftPageExempt())
+      );
+      root.setAttribute(
+        "data-adblock-lite-pip",
+        on(this.features.videoPip !== false && !SiteContext.isSoftPageExempt())
+      );
+      root.setAttribute(
+        "data-gosafe-reader-mode",
+        on(this.features.readerMode !== false && !SiteContext.isSoftPageExempt())
+      );
+      root.setAttribute(
+        "data-gosafe-quiz-assist",
+        on(this.features.quizAssist !== false)
+      );
+      try {
+        root.setAttribute("data-gosafe-icon-url", chrome.runtime.getURL("icons/icon48.png"));
+      } catch {
+        root.removeAttribute("data-gosafe-icon-url");
+      }
     }
 
     /** Publish current UA string for MAIN-world JS spoofing. */
@@ -283,7 +442,14 @@
       const root = document.documentElement;
       if (!root) return;
       const profile = this.protectionProfile || "light";
-      if (!this.active || !this.features.randomUa || profile !== "advanced") {
+      if (
+        !this.active ||
+        !this.features.randomUa ||
+        profile !== "advanced" ||
+        SiteContext.isFragileCommerce() ||
+        SiteContext.isSoftPageExempt() ||
+        SiteContext.isMediaSite()
+      ) {
         root.removeAttribute("data-adblock-lite-ua");
         return;
       }
@@ -523,10 +689,37 @@
       "[aria-label*='notification' i][role='dialog']",
       "[aria-label*='newsletter' i][role='dialog']",
       "[aria-label*='subscribe' i][role='dialog']",
+      // Orphan modal veils (dialog hidden, backdrop left) — common on news WordPress
+      ".modal-backdrop",
+      ".modal-overlay",
+      ".popup-overlay",
+      ".popup-backdrop",
+      ".mfp-bg",
+      ".mfp-wrap",
+      ".fancybox-overlay",
+      ".fancybox-bg",
+      ".fancybox-container",
+      ".pum-overlay",
+      ".pum-overlay-active",
+      ".popmake-overlay",
+      ".spu-bg",
+      ".sgpb-popup-overlay",
+      ".om-overlay",
+      ".elementor-popup-modal",
+      ".dialog-widget-content + .dialog-lightbox-widget",
+      "[class*='modal-backdrop' i]",
+      "[class*='popup-overlay' i]",
+      "[class*='PopupOverlay' i]",
+      "[id*='modal-backdrop' i]",
+      "[class*='lightbox-overlay' i]",
+      ".bg-dark.modal-backdrop",
+      "div.overlay.active",
+      "div#overlay",
+      "div#popup_overlay",
     ]);
 
     static ANNOYANCE_HINT =
-      /cookie|consent|gdpr|ccpa|onetrust|cookiebot|didomi|osano|quantcast|onesignal|push.?notif|newsletter[-_ ]?(popup|modal|banner)|subscribe[-_ ]?(modal|popup|wall)|email[-_ ]?(modal|popup)|#paywall$|\.paywall$|piano-paywall|regwall/i;
+      /cookie|consent|gdpr|ccpa|onetrust|cookiebot|didomi|osano|quantcast|onesignal|push.?notif|newsletter[-_ ]?(popup|modal|banner)|subscribe[-_ ]?(modal|popup|wall)|email[-_ ]?(modal|popup)|#paywall$|\.paywall$|piano-paywall|regwall|modal-backdrop|popup-overlay|pum-overlay|mfp-bg|fancybox-overlay|popmake/i;
 
     /** Filter list selectors that look like cookie/paywall/push UI. */
     static filterAnnoyances(selectors) {
@@ -1093,7 +1286,7 @@
     static hideRule(selectors) {
       if (!selectors.length) return "";
       return (
-        `${selectors.join(",")},[data-abl-hidden="1"]` +
+        `${selectors.join(",")},[data-abl-hidden="1"],[data-abl-orphan-backdrop="1"]` +
         "{display:none!important;visibility:hidden!important;pointer-events:none!important;height:0!important;max-height:0!important;overflow:hidden!important;}"
       );
     }
@@ -1151,16 +1344,155 @@
         const body = document.body;
         if (html) {
           html.style.removeProperty("overflow");
-          html.classList.remove("no-scroll", "overflow-hidden", "cookie-open", "consent-open");
+          html.style.removeProperty("overflow-y");
+          html.classList.remove(
+            "no-scroll",
+            "overflow-hidden",
+            "cookie-open",
+            "consent-open",
+            "pum-open",
+            "fancybox-active",
+            "mfp-zoom-out-cur"
+          );
         }
         if (body) {
           body.style.removeProperty("overflow");
+          body.style.removeProperty("overflow-y");
           body.style.removeProperty("position");
-          body.classList.remove("no-scroll", "overflow-hidden", "modal-open", "cookie-open");
+          body.style.removeProperty("padding-right");
+          body.classList.remove(
+            "no-scroll",
+            "overflow-hidden",
+            "modal-open",
+            "cookie-open",
+            "pum-open",
+            "fancybox-active",
+            "mfp-zoom-out-cur",
+            "compensate-for-scrollbar"
+          );
         }
       } catch {
         // ignore
       }
+    }
+  }
+
+  /**
+   * Hide leftover full-screen dimmers when the popup/dialog was already removed
+   * by cosmetics (black transparency over a readable page).
+   */
+  class OrphanBackdropSweeper {
+    static #ATTR = "data-abl-orphan-backdrop";
+    static #started = false;
+
+    /** @param {string} bg */
+    static #isDarkVeil(bg) {
+      const m = String(bg || "")
+        .replace(/\s+/g, "")
+        .match(/^rgba?\((\d+),(\d+),(\d+)(?:,([0-9.]+))?\)$/i);
+      if (!m) return false;
+      const r = Number(m[1]);
+      const g = Number(m[2]);
+      const b = Number(m[3]);
+      const a = m[4] === undefined ? 1 : Number(m[4]);
+      if (!Number.isFinite(a) || a < 0.2 || a > 0.95) return false;
+      return r <= 60 && g <= 60 && b <= 60;
+    }
+
+    /** @param {HTMLElement} el */
+    static looksLikeOrphan(el) {
+      if (!(el instanceof HTMLElement)) return false;
+      if (el === document.documentElement || el === document.body) return false;
+      if (el.hasAttribute(OrphanBackdropSweeper.#ATTR)) return false;
+      if (SiteContext.isCanva()) return false;
+      if (SiteContext.isSoftPageExempt()) return false;
+      if (SiteContext.isMediaSite() || SiteContext.isStreamEmbed()) return false;
+
+      const cls = `${el.className || ""} ${el.id || ""}`.toLowerCase();
+      const named =
+        /backdrop|overlay|pum-|mfp-bg|fancybox|popmake|lightbox|spu-bg|sgpb|om-overlay/.test(cls);
+
+      const style = getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      const pos = style.position;
+      if (pos !== "fixed" && pos !== "absolute") return false;
+
+      const rect = el.getBoundingClientRect();
+      const vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+      const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+      if (vw < 200 || vh < 200) return false;
+      if (rect.width / vw < 0.85 || rect.height / vh < 0.7) return false;
+
+      const dark = OrphanBackdropSweeper.#isDarkVeil(style.backgroundColor);
+      if (!named && !dark) return false;
+
+      if (
+        el.getAttribute("role") === "dialog" ||
+        el.getAttribute("aria-modal") === "true" ||
+        el.matches?.("dialog")
+      ) {
+        const text = (el.innerText || "").trim();
+        if (text.length > 80) return false;
+        if (el.querySelector("form, input, button, a[href], iframe")) return false;
+      }
+
+      const text = (el.innerText || "").replace(/\s+/g, " ").trim();
+      if (text.length > 120) return false;
+      const meaningful = el.querySelector(
+        "form, input:not([type='hidden']), textarea, button, iframe, video, img[src]"
+      );
+      if (meaningful) {
+        const mr = meaningful.getBoundingClientRect();
+        if (mr.width > 40 && mr.height > 20 && getComputedStyle(meaningful).display !== "none") {
+          if (!named || (mr.width > 200 && mr.height > 120 && text.length > 40)) return false;
+        }
+      }
+
+      const z = Number.parseInt(style.zIndex, 10);
+      if (Number.isFinite(z) && z < 10 && !named) return false;
+      return named || dark;
+    }
+
+    static sweep() {
+      if (SiteContext.isMediaSite() || SiteContext.isStreamEmbed()) return 0;
+      let n = 0;
+      const nodes = document.querySelectorAll(
+        "div, section, aside, span, [class*='overlay' i], [class*='backdrop' i], [class*='pum' i], [class*='mfp' i], [class*='fancybox' i]"
+      );
+      for (const el of nodes) {
+        if (!(el instanceof HTMLElement)) continue;
+        if (!OrphanBackdropSweeper.looksLikeOrphan(el)) continue;
+        el.setAttribute(OrphanBackdropSweeper.#ATTR, "1");
+        el.style.setProperty("display", "none", "important");
+        el.style.setProperty("visibility", "hidden", "important");
+        el.style.setProperty("pointer-events", "none", "important");
+        el.setAttribute("aria-hidden", "true");
+        n += 1;
+      }
+      if (n > 0) ScrollUnlocker.unlock();
+      return n;
+    }
+
+    static start() {
+      if (OrphanBackdropSweeper.#started) return;
+      OrphanBackdropSweeper.#started = true;
+      const run = () => {
+        try {
+          OrphanBackdropSweeper.sweep();
+        } catch {
+          // ignore
+        }
+      };
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", run, { once: true });
+      } else {
+        run();
+      }
+      window.addEventListener("load", run, { once: true });
+      setTimeout(run, 600);
+      setTimeout(run, 2000);
+      setTimeout(run, 5000);
+      setInterval(run, 4000);
     }
   }
 
@@ -1209,10 +1541,14 @@
 
   class RedirectPatternSet {
     static BAD =
-      /s\.click\.aliexpress\.com|click\.aliexpress\.com|s\.click\.taobao\.com|1xlite-|1xbet|1xstavka|refpa\.top|refpaiwqns|mostbet\.com|melbet\.com|linebet\.com|betwinner\.com|trip\.com[^"'\s]*Allianceid=|trip\.com[^"'\s]*trip_sub1=|trip\.com[^"'\s]*[?&]SID=|popads\.net|propellerads|exoclick|juicyads|ouo\.io|adf\.ly|onclkds|onclicksuper|trafficjunky|clickadu|hilltopads|adsterra|adcash|popcash|popmyads|profitableratecpm|trafficstars|admaven|adspyglass|go\.redirectingat\.com|shrsl\.com/i;
+      /s\.click\.aliexpress\.com|click\.aliexpress\.com|s\.click\.taobao\.com|1xlite-|1xbet|1xstavka|refpa\.top|refpaiwqns|mostbet\.com|melbet\.com|linebet\.com|betwinner\.com|trip\.com[^"'\s]*Allianceid=|trip\.com[^"'\s]*trip_sub1=|trip\.com[^"'\s]*[?&]SID=|popads\.net|propellerads|exoclick|juicyads|ouo\.io|adf\.ly|onclkds|onclicksuper|trafficjunky|clickadu|hilltopads|adsterra|adcash|popcash|popmyads|profitableratecpm|trafficstars|admaven|adspyglass|go\.redirectingat\.com|shrsl\.com|spinreward\.|rewardspin\.|bk8top\.|conversions_tracking=.*zone_id=|zone_id=.*conversions_tracking=/i;
 
     static isBad(href) {
-      return RedirectPatternSet.BAD.test(href) || /Allianceid=|trip_sub1=/.test(href);
+      return (
+        RedirectPatternSet.BAD.test(href) ||
+        /Allianceid=|trip_sub1=/.test(href) ||
+        (/[?&]conversions_tracking=/i.test(href) && /[?&]zone_id=/i.test(href))
+      );
     }
   }
 
@@ -1363,6 +1699,7 @@ a[href*="trip.com"][href*="trip_sub1="] {
       const all = SelectorCatalog.uniqueMerge(SelectorCatalog.ANNOYANCE, extra);
       this._styles.inject(StyleInjector.ANNOYANCE_ID, StyleInjector.hideRule(all));
       ScrollUnlocker.unlock();
+      OrphanBackdropSweeper.sweep();
     }
 
     applyFallbacks() {
@@ -1378,12 +1715,41 @@ a[href*="trip.com"][href*="trip_sub1="] {
       this._styles.injectBatches(`${StyleInjector.PREFIX}-fb`, merged);
     }
 
+    /**
+     * Movie sites often put the real player in iframe.ads — keep it visible
+     * even if a generic/ad rule would hide `.ads`.
+     */
+    #protectPlayerFrames() {
+      this._styles.inject(
+        "adblock-lite-player-protect",
+        `
+iframe[name="player"],
+iframe[name="iframe_player"],
+iframe.ads[allow*="autoplay" i],
+iframe.ads[allowfullscreen],
+iframe.ads[allow*="fullscreen" i],
+#player iframe,
+.player iframe,
+.video-player iframe,
+[id*="player" i] > iframe {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  max-height: none !important;
+  height: 100% !important;
+}
+`.trim()
+      );
+    }
+
     async applyCustom() {
       if (!SiteContext.isTopFrame()) return;
       try {
         const data = await chrome.storage.local.get({
           customCosmetics: {},
           adaptiveCosmetics: {},
+          userRuleCosmetics: {},
         });
         const map = data.customCosmetics && typeof data.customCosmetics === "object"
           ? data.customCosmetics
@@ -1392,18 +1758,22 @@ a[href*="trip.com"][href*="trip_sub1="] {
           data.adaptiveCosmetics && typeof data.adaptiveCosmetics === "object"
             ? data.adaptiveCosmetics
             : {};
+        const userRules =
+          data.userRuleCosmetics && typeof data.userRuleCosmetics === "object"
+            ? data.userRuleCosmetics
+            : {};
         const host = SiteContext.hostname();
         const seen = new Set();
         /** @type {string[]} */
         const selectors = [];
         const parts = host.split(".").filter(Boolean);
-        const keys = [];
+        const keys = ["*"];
         for (let i = 0; i < parts.length - 1; i += 1) {
           keys.push(parts.slice(i).join("."));
         }
         if (host && !keys.includes(host)) keys.push(host);
         for (const key of keys) {
-          for (const list of [map[key], adaptive[key]]) {
+          for (const list of [map[key], adaptive[key], userRules[key]]) {
             if (!Array.isArray(list)) continue;
             for (const sel of list) {
               const s = String(sel || "").trim();
@@ -1478,9 +1848,16 @@ a[href*="trip.com"][href*="trip_sub1="] {
           return;
         }
 
+        // Meta / NVIDIA / Google apps — EasyList + hooks corrupt product buttons
+        if (SiteContext.isSoftPageExempt()) {
+          this.applyFallbacks();
+          return;
+        }
+
         // Streaming sites: light fallbacks + clickjack sweep (no EasyList player killers)
         if (SiteContext.isMediaSite()) {
           this.applyFallbacks();
+          this.#protectPlayerFrames();
           this._redirects.installClickGuard();
           this._redirects.startWatch();
           return;
@@ -1612,6 +1989,7 @@ a[href*="trip.com"][href*="trip_sub1="] {
       if (
         !SiteContext.isMedium() &&
         !SiteContext.isCanva() &&
+        !SiteContext.isSoftPageExempt() &&
         !SiteContext.isStreamEmbed() &&
         !SiteContext.isMediaSite()
       ) {
@@ -1620,11 +1998,13 @@ a[href*="trip.com"][href*="trip_sub1="] {
       if (
         this._policy.features.clickGuard &&
         !SiteContext.isStreamEmbed() &&
-        !SiteContext.isCanva()
+        !SiteContext.isCanva() &&
+        !SiteContext.isSoftPageExempt()
       ) {
         this._redirects.installClickGuard();
       }
       await this._cosmetics.apply();
+      if (!SiteContext.isSoftPageExempt()) OrphanBackdropSweeper.start();
     }
 
     async enable() {
@@ -1647,6 +2027,12 @@ a[href*="trip.com"][href*="trip_sub1="] {
       document.documentElement?.setAttribute("data-adblock-lite-https", "off");
       document.documentElement?.setAttribute("data-adblock-lite-randomua", "off");
       document.documentElement?.setAttribute("data-adblock-lite-fingerprint", "off");
+      document.documentElement?.setAttribute("data-gosafe-force-english", "off");
+      document.documentElement?.setAttribute("data-gosafe-link-preview", "off");
+      document.documentElement?.setAttribute("data-gosafe-text-selection", "off");
+      document.documentElement?.setAttribute("data-adblock-lite-pip", "off");
+      document.documentElement?.setAttribute("data-gosafe-reader-mode", "off");
+      document.documentElement?.setAttribute("data-gosafe-quiz-assist", "off");
       document.documentElement?.removeAttribute("data-adblock-lite-ua");
     }
   }
@@ -1735,6 +2121,18 @@ a[href*="trip.com"][href*="trip_sub1="] {
       }
       return false;
     }
+    if (type === "collectPageTech") {
+      try {
+        const probe = globalThis.GosafePageTechProbe;
+        sendResponse({
+          ok: true,
+          fingerprint: probe?.collect ? probe.collect() : null,
+        });
+      } catch (err) {
+        sendResponse({ ok: false, error: String(err?.message || err || "probe_failed") });
+      }
+      return false;
+    }
     return false;
   });
 
@@ -1757,7 +2155,7 @@ a[href*="trip.com"][href*="trip_sub1="] {
 
     // Custom cosmetics only — soft re-apply without tearing down picker state unnecessarily
     if (
-      (changes.customCosmetics || changes.adaptiveCosmetics) &&
+      (changes.customCosmetics || changes.adaptiveCosmetics || changes.userRuleCosmetics) &&
       !changes.enabled &&
       !changes.features &&
       !changes.pausedHosts &&

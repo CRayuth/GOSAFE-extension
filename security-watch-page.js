@@ -138,9 +138,30 @@
     }
   }
 
-  DriveByGuard.install();
-  ApiProbeWatch.install();
-  const run = () => FakeUpdateWatch.tick();
-  setInterval(run, 2500);
-  document.addEventListener("DOMContentLoaded", run, { once: true });
+  const host = (location.hostname || "").replace(/^www\./, "").toLowerCase();
+  const isSoftPageExempt =
+    host === "gmail.com" ||
+    host.endsWith(".gmail.com") ||
+    ((host === "google.com" || host.endsWith(".google.com")) &&
+      /^(mail|accounts|docs|drive|calendar|meet|chat|contacts|photos|sheets|slides|classroom|keep|script|sites|admin|myaccount|workspace|ogs|hangouts|inbox|tasks|news|play)\./i.test(
+        host
+      )) ||
+    /(^|\.)(facebook\.com|fb\.com|messenger\.com|instagram\.com|meta\.com|threads\.net|whatsapp\.com)$/i.test(
+      host
+    ) ||
+    /(^|\.)(nvidia\.com|nvidiagrid\.net|auth0\.com)$/i.test(host) ||
+    /\.edu(\.[a-z]{2})?$/i.test(host) ||
+    /\.ac\.[a-z]{2}$/i.test(host) ||
+    /^(moodle|canvas|blackboard|brightspace|schoology|classroom|elearning|e-learning|lms)\./i.test(
+      host
+    ) ||
+    /moodle|elearning|instructure\.com|blackboard|brightspace|schoology/i.test(host);
+
+  if (!isSoftPageExempt) {
+    DriveByGuard.install();
+    ApiProbeWatch.install();
+    const run = () => FakeUpdateWatch.tick();
+    setInterval(run, 2500);
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+  }
 })();

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User rules — GOSAFE adblock</title>
+    <link rel="stylesheet" href="user-agent.css" />
+    <style>
+      .rules-help {
+        margin: 0 0 12px;
+        font-size: 13px;
+        line-height: 1.45;
+        color: var(--muted, #666);
+      }
+      .rules-help code {
+        font-size: 12px;
+        background: rgba(0, 0, 0, 0.06);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      #rulesText {
+        width: 100%;
+        min-height: 280px;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid var(--line, #ddd);
+        background: var(--panel, #fff);
+        color: var(--text, #111);
+        resize: vertical;
+        box-sizing: border-box;
+      }
+      .rules-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      .rules-actions button {
+        border: 0;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #111;
+        color: #fff;
+      }
+      .rules-actions button.secondary {
+        background: transparent;
+        color: inherit;
+        border: 1px solid var(--line, #ddd);
+      }
+      #rulesStatus {
+        font-size: 12px;
+        color: var(--muted, #666);
+      }
+      #rulesErrors {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #b00020;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div class="hero-brand">
+          <img src="../icons/default_logo.png" alt="" width="36" height="36" />
+          <div>
+            <h1>User rules</h1>
+            <p>Network blocks + cosmetic hides (MV3-safe subset)</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="card" style="padding: 16px">
+        <p class="rules-help">
+          One rule per line. Supported:
+          <code>||tracker.example^</code> (block domain),
+          <code>example.com##.ad</code> (hide element),
+          <code>##.cookie-banner</code> (global cosmetic).
+          Comments start with <code>!</code>. No remote JavaScript.
+        </p>
+        <textarea id="rulesText" spellcheck="false" placeholder="||ads.example^&#10;news.example##.promo-rail"></textarea>
+        <div class="rules-actions">
+          <button type="button" id="saveRules">Save</button>
+          <button type="button" class="secondary" id="reloadRules">Reload</button>
+          <span id="rulesStatus"></span>
+        </div>
+        <div id="rulesErrors" hidden></div>
+      </section>
+    </div>
+    <script src="user-rules.js"></script>
+  </body>
+</html>

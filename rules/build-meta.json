@@ -4,25 +4,25 @@
       "id": "hagezi_promini",
       "name": "HaGeZi Pro Mini",
       "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.mini.txt",
-      "domains": 56509,
+      "domains": 56635,
       "allow": 0,
       "url_rules": 0,
       "cosmetics_generic": 0,
       "cosmetics_specific_hosts": 0,
-      "skipped": 555,
-      "new_unique_domains": 56509
+      "skipped": 429,
+      "new_unique_domains": 56635
     },
     {
       "id": "hagezi_tif_mini",
       "name": "HaGeZi Threat Intelligence Mini",
       "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.mini.txt",
-      "domains": 170894,
+      "domains": 170895,
       "allow": 0,
       "url_rules": 0,
       "cosmetics_generic": 0,
       "cosmetics_specific_hosts": 0,
-      "skipped": 199,
-      "new_unique_domains": 162866
+      "skipped": 198,
+      "new_unique_domains": 162867
     },
     {
       "id": "hagezi_fake",
@@ -49,28 +49,40 @@
       "new_unique_domains": 45656
     },
     {
+      "id": "adguard_tracking",
+      "name": "AdGuard Tracking Protection",
+      "url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_3_Spyware/filter.txt",
+      "domains": 85055,
+      "allow": 68,
+      "url_rules": 104414,
+      "cosmetics_generic": 15,
+      "cosmetics_specific_hosts": 208,
+      "skipped": 2376,
+      "new_unique_domains": 78830
+    },
+    {
       "id": "easylist",
       "name": "EasyList",
       "url": "https://easylist.to/easylist/easylist.txt",
-      "domains": 53029,
-      "allow": 24,
+      "domains": 53053,
+      "allow": 25,
       "url_rules": 2972,
       "cosmetics_generic": 13641,
       "cosmetics_specific_hosts": 7707,
-      "skipped": 4691,
-      "new_unique_domains": 29105
+      "skipped": 4687,
+      "new_unique_domains": 29095
     },
     {
       "id": "easyprivacy",
       "name": "EasyPrivacy",
       "url": "https://easylist.to/easylist/easyprivacy.txt",
-      "domains": 46540,
+      "domains": 46561,
       "allow": 17,
       "url_rules": 7710,
       "cosmetics_generic": 2,
       "cosmetics_specific_hosts": 297,
-      "skipped": 638,
-      "new_unique_domains": 40702
+      "skipped": 616,
+      "new_unique_domains": 16522
     },
     {
       "id": "fanboy_cookie",
@@ -82,19 +94,19 @@
       "cosmetics_generic": 15272,
       "cosmetics_specific_hosts": 16250,
       "skipped": 432,
-      "new_unique_domains": 303
+      "new_unique_domains": 299
     },
     {
       "id": "ubo_filters",
       "name": "uBlock filters",
       "url": "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",
-      "domains": 183,
+      "domains": 179,
       "allow": 382,
-      "url_rules": 528,
+      "url_rules": 531,
       "cosmetics_generic": 45,
       "cosmetics_specific_hosts": 3255,
-      "skipped": 523,
-      "new_unique_domains": 124
+      "skipped": 524,
+      "new_unique_domains": 118
     },
     {
       "id": "ubo_badware",
@@ -106,19 +118,19 @@
       "cosmetics_generic": 0,
       "cosmetics_specific_hosts": 0,
       "skipped": 2843,
-      "new_unique_domains": 184
+      "new_unique_domains": 183
     },
     {
       "id": "ubo_privacy",
       "name": "uBlock filters \u2014 Privacy",
       "url": "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt",
-      "domains": 114,
-      "allow": 1,
-      "url_rules": 821,
+      "domains": 109,
+      "allow": 0,
+      "url_rules": 800,
       "cosmetics_generic": 1,
       "cosmetics_specific_hosts": 743,
-      "skipped": 444,
-      "new_unique_domains": 64
+      "skipped": 480,
+      "new_unique_domains": 50
     },
     {
       "id": "ubo_quickfixes",
@@ -136,25 +148,25 @@
       "id": "ubo_unbreak",
       "name": "uBlock filters \u2014 Unbreak",
       "url": "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt",
-      "domains": 96,
-      "allow": 65,
-      "url_rules": 243,
+      "domains": 97,
+      "allow": 64,
+      "url_rules": 239,
       "cosmetics_generic": 1,
       "cosmetics_specific_hosts": 405,
-      "skipped": 789,
-      "new_unique_domains": 33
+      "skipped": 796,
+      "new_unique_domains": 26
     },
     {
       "id": "peter_lowe",
       "name": "Peter Lowe's Ad and tracking server list",
       "url": "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext",
-      "domains": 3465,
+      "domains": 3483,
       "allow": 0,
       "url_rules": 0,
       "cosmetics_generic": 0,
       "cosmetics_specific_hosts": 0,
-      "skipped": 48,
-      "new_unique_domains": 1463
+      "skipped": 30,
+      "new_unique_domains": 1433
     },
     {
       "id": "urlhaus",
@@ -169,12 +181,12 @@
       "new_unique_domains": 75
     }
   ],
-  "block_domains": 327785,
-  "allow_domains": 594,
+  "block_domains": 380069,
+  "allow_domains": 658,
   "urlfilter_rules": 6000,
-  "dnr_rules": 6083,
-  "cosmetics_generic": 28961,
-  "cosmetics_specific_hosts": 27281,
+  "dnr_rules": 6097,
+  "cosmetics_generic": 28975,
+  "cosmetics_specific_hosts": 27435,
   "rulesets": [
     "blocklist_1",
     "blocklist_2",

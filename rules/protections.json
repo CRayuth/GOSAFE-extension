@@ -357,5 +357,44 @@
       "urlFilter": "/advertisement.js",
       "resourceTypes": ["script", "xmlhttprequest", "other"]
     }
+  },
+  {
+    "id": 36,
+    "priority": 80,
+    "action": { "type": "block" },
+    "condition": {
+      "requestDomains": [
+        "spinreward.click",
+        "bk8top.com",
+        "www.bk8top.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "xmlhttprequest",
+        "image",
+        "ping",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 37,
+    "priority": 80,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "conversions_tracking=",
+      "resourceTypes": ["main_frame", "sub_frame"]
+    }
+  },
+  {
+    "id": 38,
+    "priority": 75,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||spinreward.",
+      "resourceTypes": ["main_frame", "sub_frame", "script", "xmlhttprequest", "other"]
+    }
   }
 ]

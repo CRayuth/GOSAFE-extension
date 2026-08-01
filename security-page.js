@@ -3,6 +3,79 @@
 
   // MAIN world — clipboard hijack, scriptlets, permission spam.
 
+  class SiteContext {
+    static hostname() {
+      return (location.hostname || "").replace(/^www\./, "").toLowerCase();
+    }
+
+    /** Gmail / Workspace — scriptlets + permission hooks break Gmail (#2014). */
+    static isGoogleApp() {
+      const host = SiteContext.hostname();
+      if (host === "gmail.com" || host.endsWith(".gmail.com")) return true;
+      if (host === "googleusercontent.com" || host.endsWith(".googleusercontent.com")) {
+        return true;
+      }
+      if (!(host === "google.com" || host.endsWith(".google.com"))) return false;
+      return /^(mail|accounts|docs|drive|calendar|meet|chat|contacts|photos|sheets|slides|classroom|keep|script|sites|admin|myaccount|workspace|ogs|hangouts|inbox|tasks|news|play)\./i.test(
+        host
+      );
+    }
+
+    static isMetaApp() {
+      const host = SiteContext.hostname();
+      return (
+        host === "facebook.com" ||
+        host.endsWith(".facebook.com") ||
+        host === "fb.com" ||
+        host.endsWith(".fb.com") ||
+        host === "messenger.com" ||
+        host.endsWith(".messenger.com") ||
+        host === "instagram.com" ||
+        host.endsWith(".instagram.com") ||
+        host === "meta.com" ||
+        host.endsWith(".meta.com") ||
+        host === "threads.net" ||
+        host.endsWith(".threads.net") ||
+        host === "whatsapp.com" ||
+        host.endsWith(".whatsapp.com")
+      );
+    }
+
+    static isNvidiaApp() {
+      const host = SiteContext.hostname();
+      return (
+        host === "nvidia.com" ||
+        host.endsWith(".nvidia.com") ||
+        host === "nvidiagrid.net" ||
+        host.endsWith(".nvidiagrid.net") ||
+        host === "auth0.com" ||
+        host.endsWith(".auth0.com")
+      );
+    }
+
+    static isEducationLms() {
+      const h = SiteContext.hostname();
+      if (/\.edu(\.[a-z]{2})?$/i.test(h) || /\.ac\.[a-z]{2}$/i.test(h)) return true;
+      if (
+        /^(moodle|canvas|blackboard|brightspace|schoology|classroom|elearning|e-learning|lms)\./i.test(
+          h
+        )
+      ) {
+        return true;
+      }
+      return /moodle|elearning|instructure\.com|blackboard|brightspace|schoology/i.test(h);
+    }
+
+    static isSoftPageExempt() {
+      return (
+        SiteContext.isGoogleApp() ||
+        SiteContext.isMetaApp() ||
+        SiteContext.isNvidiaApp() ||
+        SiteContext.isEducationLms()
+      );
+    }
+  }
+
   class FeatureFlags {
     static masterOn() {
       const root = document.documentElement;
@@ -274,7 +347,14 @@
       }
 
       // Abort reads of a few high-noise anti-adblock hooks.
-      for (const prop of ["__adblock", "__adBlock", "google_ad_status"]) {
+      for (const prop of [
+        "__adblock",
+        "__adBlock",
+        "google_ad_status",
+        "google_ad_client",
+        "googleAd",
+        "adblockEnabled",
+      ]) {
         try {
           Object.defineProperty(window, prop, {
             configurable: true,
@@ -287,6 +367,63 @@
         } catch {
           // ignore
         }
+      }
+
+      // set-constant style stubs for common bait properties
+      const constants = {
+        adblock: false,
+        adBlockEnabled: false,
+        isAdBlockActive: false,
+        adsBlocked: false,
+        canRunAds: true,
+        canShowAds: true,
+      };
+      for (const [key, value] of Object.entries(constants)) {
+        define(window, key, value);
+      }
+
+      // prevent-addEventListener for known anti-adblock probe names
+      try {
+        const nativeAdd = EventTarget.prototype.addEventListener;
+        EventTarget.prototype.addEventListener = function patchedAdd(type, listener, options) {
+          if (FeatureFlags.on("scriptlets")) {
+            const name = String(type || "").toLowerCase();
+            if (name === "error" && typeof listener === "function") {
+              const src = String(listener);
+              if (/adblock|adsbygoogle|googlesyndication/i.test(src)) {
+                return undefined;
+              }
+            }
+          }
+          return nativeAdd.call(this, type, listener, options);
+        };
+      } catch {
+        // ignore
+      }
+
+      // JSON.parse prune for inline player blobs that bypass fetch hooks
+      try {
+        const nativeParse = JSON.parse;
+        JSON.parse = function patchedParse(text, reviver) {
+          const value = nativeParse.call(this, text, reviver);
+          try {
+            if (
+              FeatureFlags.on("scriptlets") &&
+              value &&
+              typeof value === "object" &&
+              (value.adPlacements || value.playerAds || value.adSlots)
+            ) {
+              if (Array.isArray(value.adPlacements)) value.adPlacements = [];
+              if (Array.isArray(value.playerAds)) value.playerAds = [];
+              if (Array.isArray(value.adSlots)) value.adSlots = [];
+            }
+          } catch {
+            // ignore
+          }
+          return value;
+        };
+      } catch {
+        // ignore
       }
     }
   }
@@ -408,6 +545,7 @@
 
   class SecurityPageApp {
     start() {
+      if (SiteContext.isSoftPageExempt()) return;
       GestureClock.install();
       ScriptletEngine.install();
       ClipboardGuard.install();

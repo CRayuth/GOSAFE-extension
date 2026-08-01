@@ -38,6 +38,58 @@ e.g. `analytics.google.com`, `log.fc.yahoo.com`, `ads.youtube.com`.
 python scripts/build_d3host.py
 ```
 
+## Redirect stubs (AdGuard-style `$redirect`)
+
+MV3 cannot patch responses; instead GOSAFE **redirects** common tag/pixel hosts
+to local empty resources under `web-accessible-resources/redirects/` (priority **1110**).
+That keeps `onerror` quieter than a hard block while still neutering trackers
+(`googletagmanager.com`, `google-analytics.com`, FB pixel paths, etc.).
+
+```bash
+python scripts/build_redirects.py
+```
+
+## AdGuard Tracking Protection + URL Tracking
+
+- **Tracking Protection** ([filter_3_Spyware](https://github.com/AdguardTeam/FiltersRegistry/tree/master/filters/filter_3_Spyware)) is included in the lite/full blocklist build (`build_blocklists.py`) for extra tracker domains + cosmetics.
+- **URL Tracking** ([filter_17_TrackParam](https://github.com/AdguardTeam/FiltersRegistry/tree/master/filters/filter_17_TrackParam)) is compiled to `rules/trackparams.json` — DNR `queryTransform.removeParams` strips `utm_*`, `fbclid`, `gclid`, and ~1.7k other params (priority **500**).
+
+```bash
+python scripts/build_trackparams.py
+```
+
+## Split allowlist
+
+- **Full allow** (priority 1000) — streaming, YouTube media stack, CDNs, fonts, Spotify, Canva, Medium
+- **Shell allow** (priority 900) — major sites (`google.com`, `facebook.com`, `apple.com`, …) for `main_frame` / `sub_frame` only, so tracker subdomains can still be blocked or redirected
+
+Build-time `is_allowlisted()` also skips tracker-shaped hosts (`ads.*`, `analytics.*`, `pixel.*`, …) so they remain eligible for blocklists.
+
+## Activity log exceptions (Phase C)
+
+Network rows show **rule source**, **rule id**, and **block vs redirect**. Use **Allow** on a row to whitelist the *initiating page* (same as Whitelist mode — trackers stay blocked).
+
+## User rules (Phase D)
+
+Popup → **Rules**, or open `options/user-rules.html`:
+
+```
+||tracker.example^
+example.com##.ad-rail
+##.cookie-banner
+```
+
+Network lines become dynamic DNR blocks (ids 9600+). Cosmetic lines merge with Hide-element / adaptive cosmetics.
+
+## Refresh rulesets
+
+```bash
+python scripts/refresh_rulesets.py          # d3host + redirects
+python scripts/refresh_rulesets.py --lite   # + lite blocklists
+```
+
+GitHub Actions: `.github/workflows/refresh-rulesets.yml` (daily + manual).
+
 ## Filter sources
 
 Default **lite** profile (uBlock-style defaults, size-capped):

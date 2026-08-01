@@ -412,7 +412,7 @@
               <i class="fa-solid fa-cookie-bite"></i>
               <span class="nav-copy">
                 <strong>Cookie decline</strong>
-                <small>Auto-click Reject / essential only</small>
+                <small>Reject / essential only — locale-aware phrases</small>
               </span>
             </span>
             <input id="featCookie" type="checkbox" checked />
@@ -529,6 +529,90 @@
 
           <label class="nav-row feature">
             <span class="nav-left">
+              <i class="fa-solid fa-network-wired"></i>
+              <span class="nav-copy">
+                <strong>DNS defense</strong>
+                <small>Tunnel patterns + spoof / rebinding checks</small>
+              </span>
+            </span>
+            <input id="featDnsDefense" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-language"></i>
+              <span class="nav-copy">
+                <strong>Force English</strong>
+                <small>Silent in-page English — no Google bar</small>
+              </span>
+            </span>
+            <input id="featForceEnglish" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-eye"></i>
+              <span class="nav-copy">
+                <strong>Link preview</strong>
+                <small>Hover links for page / PDF / doc previews</small>
+              </span>
+            </span>
+            <input id="featLinkPreview" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-highlighter"></i>
+              <span class="nav-copy">
+                <strong>Text selection</strong>
+                <small>Translate, highlight, notes &amp; QCM answers (NVIDIA)</small>
+              </span>
+            </span>
+            <input id="featTextSelection" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-tv"></i>
+              <span class="nav-copy">
+                <strong>Video PiP</strong>
+                <small>Picture-in-picture + hide video overlay ads</small>
+              </span>
+            </span>
+            <input id="featVideoPip" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-book-open"></i>
+              <span class="nav-copy">
+                <strong>Reader mode</strong>
+                <small>Clean reading view — keeps your highlights</small>
+              </span>
+            </span>
+            <input id="featReaderMode" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
+              <i class="fa-solid fa-lightbulb"></i>
+              <span class="nav-copy">
+                <strong>Quiz Assist</strong>
+                <small>Quizizz / Wayground / Kahoot — NVIDIA answers (+ Kahoot bank when available)</small>
+              </span>
+            </span>
+            <input id="featQuizAssist" type="checkbox" checked />
+            <span class="mini-switch"></span>
+          </label>
+
+          <label class="nav-row feature">
+            <span class="nav-left">
               <i class="fa-solid fa-binoculars"></i>
               <span class="nav-copy">
                 <strong>Security watch</strong>
@@ -568,6 +652,9 @@
       <div class="popup-footer">
         <p id="siteHint" class="footer-hint">Checking site…</p>
         <div class="footer-meta">
+          <button type="button" id="openUserRules" class="footer-link" title="User rules">
+            Rules
+          </button>
           <span id="versionText" class="version">v—</span>
           <a
             id="githubLink"
@@ -629,6 +716,7 @@
                 <th>From</th>
                 <th>×</th>
                 <th>Age</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="logTableBody"></tbody>

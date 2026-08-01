@@ -36,6 +36,14 @@
     securityWatch: true,
     trackerLearn: true,
     privacySignals: true,
+    dnsDefense: true,
+    forceEnglish: true,
+    linkPreview: true,
+    textSelection: true,
+    videoPip: true,
+    readerMode: true,
+    quizAssist: true,
+    aiAssistant: false,
   });
 
   /** @typedef {"speed" | "light" | "advanced"} ProtectionProfile */
@@ -65,7 +73,10 @@
       "lib/adaptive-learn.js",
       "lib/tracker-learn.js",
       "lib/list-updater.js",
-      "lib/activity-log.js"
+      "lib/activity-log.js",
+      "lib/user-rules.js",
+      "lib/dns-defense.js",
+      "lib/ai-nvidia.js"
     );
   } catch (err) {
     console.error("GOSAFE adblock failed to load modules", err);
@@ -78,6 +89,8 @@
     for (const key of Object.keys(DEFAULT_FEATURES)) {
       out[key] = src[key] !== undefined ? Boolean(src[key]) : DEFAULT_FEATURES[key];
     }
+    // AI assistant is internal-only — never expose / enable via UI.
+    out.aiAssistant = false;
     return out;
   }
 
@@ -249,6 +262,100 @@
     }
   }
 
+  /**
+   * Sites that break under UA spoof / Force-English Accept-Language.
+   * Used as DNR excludedRequestDomains + excludedInitiatorDomains.
+   */
+  class SiteCompat {
+    static FRAGILE_DOMAINS = Object.freeze([
+      "taobao.com",
+      "tmall.com",
+      "tmall.hk",
+      "alibaba.com",
+      "alicdn.com",
+      "aliexpress.com",
+      "alipay.com",
+      "alipayobjects.com",
+      "1688.com",
+      "mmstat.com",
+      "taobaocdn.com",
+      "tbcdn.cn",
+      "jd.com",
+      "jd.hk",
+      "360buyimg.com",
+      "qq.com",
+      "wechat.com",
+      "weixin.qq.com",
+      "baidu.com",
+      "bilibili.com",
+      "hdslb.com",
+      // Gmail / Workspace — header/UA spoof breaks sync (#2014)
+      "mail.google.com",
+      "accounts.google.com",
+      "docs.google.com",
+      "drive.google.com",
+      "calendar.google.com",
+      "meet.google.com",
+      "chat.google.com",
+      "gmail.com",
+      // Meta / NVIDIA — header spoof breaks product SPAs
+      "facebook.com",
+      "fb.com",
+      "messenger.com",
+      "instagram.com",
+      "meta.com",
+      "threads.net",
+      "whatsapp.com",
+      "nvidia.com",
+      "nvidiagrid.net",
+      "build.nvidia.com",
+      "integrate.api.nvidia.com",
+      "api.nvcf.nvidia.com",
+      "ngc.nvidia.com",
+      "org.ngc.nvidia.com",
+      "auth0.com",
+    ]);
+
+    /**
+     * Live-score / illicit-stream SPA CDNs — blocklists often catch these as trackers.
+     * Keep allowlisted so match lists & players can load; ads still blocked elsewhere.
+     */
+    static STREAM_COMPAT_DOMAINS = Object.freeze([
+      "rbtvplus18.top",
+      "tcxru135mdqf.ru",
+      "statics1.tcxru135mdqf.ru",
+      "apis-data10.tcxru135mdqf.ru",
+      "apis-data-defra10.tcxru135mdqf.ru",
+      "logos1.tcxru135mdqf.ru",
+      "ta2mnt200stayr2.cfd",
+      "apis-live.ta2mnt200stayr2.cfd",
+      "apis-live-defra.ta2mnt200stayr2.cfd",
+      "cutty13dm.cfd",
+      "app98.cutty13dm.cfd",
+    ]);
+
+    /** School LMS hosts — UA spoof / FP can break Moodle & campus portals. */
+    static EDU_COMPAT_DOMAINS = Object.freeze([
+      "edu.kh",
+      "ccun.edu.kh",
+      "moodle.ccun.edu.kh",
+      "instructure.com",
+      "canvaslms.com",
+      "blackboard.com",
+      "brightspace.com",
+      "schoology.com",
+    ]);
+
+    /** @returns {string[]} */
+    static uaExcludeDomains() {
+      return [
+        ...SiteCompat.FRAGILE_DOMAINS,
+        ...SiteCompat.STREAM_COMPAT_DOMAINS,
+        ...SiteCompat.EDU_COMPAT_DOMAINS,
+      ];
+    }
+  }
+
   /** Random User-Agent via DNR modifyHeaders + stored pool settings. */
   class UserAgentController {
     static RULE_ID = 9001;
@@ -314,6 +421,8 @@
                 condition: {
                   urlFilter: "*",
                   resourceTypes: UserAgentController.#resourceTypes,
+                  excludedRequestDomains: [...SiteCompat.uaExcludeDomains()],
+                  excludedInitiatorDomains: [...SiteCompat.uaExcludeDomains()],
                 },
               },
             ]
@@ -338,7 +447,7 @@
       if (!globalThis.UaGenerator) return { ok: false, error: "generator_missing" };
       const status = await this._store.getStatus();
       const settings = await this.getSettings();
-      const featureOn = status.enabled && status.features.randomUa !== false;
+      const featureOn = status.enabled && status.features.randomUa === true;
 
       if (!featureOn) {
         await this.#setHeaderRule("");
@@ -656,11 +765,341 @@
                 condition: {
                   domainType: "thirdParty",
                   resourceTypes: [...StrictTrackingController.#TYPES],
+                  excludedInitiatorDomains: [...SiteCompat.FRAGILE_DOMAINS],
                 },
               },
             ]
           : [],
       });
+    }
+  }
+
+  /**
+   * Link hover preview — fetch content-type + Open Graph metadata in SW.
+   */
+  class LinkPreviewService {
+    static #MAX_HTML = 250_000;
+    static #TIMEOUT_MS = 7000;
+
+    /**
+     * @param {string} url
+     * @param {string} [kind]
+     */
+    static async inspect(url, kind = "page") {
+      let parsed;
+      try {
+        parsed = new URL(String(url || ""));
+      } catch {
+        return { ok: false, error: "bad_url" };
+      }
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return { ok: false, error: "bad_protocol" };
+      }
+
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), LinkPreviewService.#TIMEOUT_MS);
+      try {
+        let res = await fetch(parsed.href, {
+          method: "GET",
+          redirect: "follow",
+          credentials: "omit",
+          signal: ctrl.signal,
+          headers: { Accept: "*/*", "User-Agent": "GOSAFE-LinkPreview/1.0" },
+        });
+        const finalUrl = res.url || parsed.href;
+        const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+        const ct = contentType.split(";")[0].trim();
+
+        if (kind === "image" || ct.startsWith("image/")) {
+          return {
+            ok: true,
+            url: finalUrl,
+            kind: "image",
+            title: parsed.pathname.split("/").pop() || parsed.hostname,
+            description: ct || "Image",
+            image: finalUrl,
+            contentType: ct,
+            frameOk: false,
+          };
+        }
+        if (kind === "pdf" || ct.includes("pdf")) {
+          return {
+            ok: true,
+            url: finalUrl,
+            kind: "pdf",
+            title: parsed.pathname.split("/").pop() || "PDF document",
+            description: "PDF document",
+            image: "",
+            contentType: ct || "application/pdf",
+            frameOk: true,
+          };
+        }
+        if (
+          kind === "doc" ||
+          /officedocument|msword|ms-excel|ms-powerpoint|text\/plain|text\/csv/.test(ct)
+        ) {
+          return {
+            ok: true,
+            url: finalUrl,
+            kind: "doc",
+            title: parsed.pathname.split("/").pop() || "Document",
+            description: ct || "Office / text document",
+            image: "",
+            contentType: ct,
+            frameOk: true,
+          };
+        }
+        if (kind === "media" || ct.startsWith("video/") || ct.startsWith("audio/")) {
+          return {
+            ok: true,
+            url: finalUrl,
+            kind: "media",
+            title: parsed.pathname.split("/").pop() || "Media",
+            description: ct || "Media file",
+            image: "",
+            contentType: ct,
+            frameOk: false,
+          };
+        }
+
+        // HTML page — scrape lightweight OG / twitter / title
+        const buf = await res.arrayBuffer();
+        const slice = buf.byteLength > LinkPreviewService.#MAX_HTML
+          ? buf.slice(0, LinkPreviewService.#MAX_HTML)
+          : buf;
+        const html = new TextDecoder("utf-8", { fatal: false }).decode(slice);
+        const meta = LinkPreviewService.#parseHtml(html, finalUrl);
+        const xfo = String(res.headers.get("x-frame-options") || "").toLowerCase();
+        const csp = String(res.headers.get("content-security-policy") || "").toLowerCase();
+        const frameOk =
+          !xfo.includes("deny") &&
+          !xfo.includes("sameorigin") &&
+          !/frame-ancestors\s+('none'|none)/i.test(csp);
+
+        return {
+          ok: true,
+          url: finalUrl,
+          kind: "page",
+          title: meta.title || parsed.hostname,
+          description: meta.description || "",
+          image: meta.image || "",
+          contentType: ct || "text/html",
+          // Prefer live frame when the site allows embedding; OG image is a fallback thumb.
+          frameOk: Boolean(frameOk),
+        };
+      } catch (err) {
+        return { ok: false, error: String(err?.message || err || "fetch_failed") };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    /**
+     * @param {string} html
+     * @param {string} baseUrl
+     */
+    static #parseHtml(html, baseUrl) {
+      const pick = (re) => {
+        const m = html.match(re);
+        return m ? LinkPreviewService.#decode(m[1] || m[2] || "").trim() : "";
+      };
+      let title =
+        pick(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+        pick(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i) ||
+        pick(/<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)["']/i) ||
+        pick(/<title[^>]*>([^<]{1,200})<\/title>/i);
+      let description =
+        pick(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
+        pick(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i) ||
+        pick(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
+        pick(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
+      let image =
+        pick(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+        pick(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+        pick(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+
+      if (image) {
+        try {
+          image = new URL(image, baseUrl).href;
+        } catch {
+          image = "";
+        }
+      }
+      return { title, description, image };
+    }
+
+    static #decode(s) {
+      return String(s || "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+    }
+  }
+
+  /** Prefer English: Accept-Language header while protection is on. */
+  class ForceEnglishController {
+    static RULE_ID = 9003;
+
+    static #TYPES = Object.freeze([
+      "main_frame",
+      "sub_frame",
+      "xmlhttprequest",
+      "script",
+      "stylesheet",
+      "image",
+      "font",
+      "media",
+      "websocket",
+      "ping",
+      "other",
+    ]);
+
+    /**
+     * @param {boolean} enabled
+     * @param {boolean} featureOn
+     */
+    async apply(enabled, featureOn) {
+      const on = Boolean(enabled && featureOn);
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: [ForceEnglishController.RULE_ID],
+        addRules: on
+          ? [
+              {
+                id: ForceEnglishController.RULE_ID,
+                priority: 50,
+                action: {
+                  type: "modifyHeaders",
+                  requestHeaders: [
+                    {
+                      header: "accept-language",
+                      operation: "set",
+                      value: "en-US,en;q=0.9",
+                    },
+                  ],
+                },
+                condition: {
+                  urlFilter: "*",
+                  resourceTypes: [...ForceEnglishController.#TYPES],
+                  excludedRequestDomains: [...SiteCompat.uaExcludeDomains()],
+                  excludedInitiatorDomains: [...SiteCompat.uaExcludeDomains()],
+                },
+              },
+            ]
+          : [],
+      });
+    }
+  }
+
+  /**
+   * Service-worker GTX translator (content scripts cannot fetch this under many CSPs).
+   */
+  class ForceEnglishTranslator {
+    static #ENDPOINT = "https://translate.googleapis.com/translate_a/single";
+    /** @type {Map<string, string>} */
+    static #cache = new Map();
+    static #CAP = 1200;
+    static #chain = Promise.resolve();
+
+    /**
+     * @param {string} text
+     * @param {string} [sl]
+     * @param {string} [tl]
+     */
+    static async #fetchOne(text, sl = "auto", tl = "en") {
+      const raw = String(text || "");
+      if (!raw.trim()) return { text: raw, detected: sl };
+      const from = String(sl || "auto").trim() || "auto";
+      const to = String(tl || "en").trim() || "en";
+      const cacheKey = `${from}|${to}|${raw}`;
+      if (ForceEnglishTranslator.#cache.has(cacheKey)) {
+        const hit = ForceEnglishTranslator.#cache.get(cacheKey);
+        if (hit) {
+          if (!Array.isArray(hit.segments) || !hit.segments.length) {
+            hit.segments = [{ src: raw, dst: hit.text || raw }];
+          }
+          return hit;
+        }
+      }
+      // POST — long selections blow past GET URL limits and silently fail.
+      const body = new URLSearchParams({
+        client: "gtx",
+        sl: from,
+        tl: to,
+        dt: "t",
+        q: raw.slice(0, 4500),
+      });
+      const res = await fetch(ForceEnglishTranslator.#ENDPOINT, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: body.toString(),
+      });
+      if (!res.ok) return { text: raw, detected: from, error: `http ${res.status}`, segments: [] };
+      const json = await res.json();
+      if (!Array.isArray(json?.[0])) {
+        return { text: raw, detected: from, error: "bad response", segments: [] };
+      }
+      /** @type {{ src: string, dst: string }[]} */
+      const segments = [];
+      const joinedParts = [];
+      for (const row of json[0]) {
+        if (!Array.isArray(row)) continue;
+        const dst = String(row[0] || "");
+        const src = String(row[1] || "");
+        if (!dst && !src) continue;
+        joinedParts.push(dst);
+        segments.push({ src, dst });
+      }
+      const joined = joinedParts.join("");
+      const detected = String(json?.[2] || from || "auto");
+      if (!joined) return { text: raw, detected, error: "empty", segments: [] };
+      // If API omitted src chunks, treat whole input as one segment.
+      if (segments.length && segments.every((s) => !s.src)) {
+        segments[0] = { src: raw, dst: joined };
+        for (let i = 1; i < segments.length; i += 1) segments[i].src = "";
+      }
+      const out = { text: joined, detected, segments };
+      ForceEnglishTranslator.#cache.set(cacheKey, out);
+      while (ForceEnglishTranslator.#cache.size > ForceEnglishTranslator.#CAP) {
+        ForceEnglishTranslator.#cache.delete(ForceEnglishTranslator.#cache.keys().next().value);
+      }
+      return out;
+    }
+
+    /**
+     * Serialize requests lightly to avoid hammering the endpoint.
+     * @param {string[]} texts
+     * @param {string} [sl]
+     * @param {string} [tl]
+     * @returns {Promise<{ texts: string[], detected: string, segments: { src: string, dst: string }[][] }>}
+     */
+    static async translateMany(texts, sl = "auto", tl = "en") {
+      const list = Array.isArray(texts) ? texts.map((t) => String(t ?? "")) : [];
+      const out = new Array(list.length);
+      /** @type {{ src: string, dst: string }[][]} */
+      const segmentsOut = new Array(list.length);
+      let detected = String(sl || "auto");
+      const wave = 6;
+      for (let i = 0; i < list.length; i += wave) {
+        const slice = list.slice(i, i + wave);
+        // eslint-disable-next-line no-await-in-loop
+        const part = await Promise.all(
+          slice.map((t) =>
+            ForceEnglishTranslator.#chain
+              .then(() => ForceEnglishTranslator.#fetchOne(t, sl, tl))
+              .catch(() => ({ text: t, detected: sl, segments: [] }))
+          )
+        );
+        for (let j = 0; j < part.length; j += 1) {
+          out[i + j] = part[j].text;
+          segmentsOut[i + j] = Array.isArray(part[j].segments) ? part[j].segments : [];
+          if (part[j].detected && part[j].detected !== "auto") detected = part[j].detected;
+        }
+      }
+      return { texts: out, detected, segments: segmentsOut };
     }
   }
 
@@ -1075,6 +1514,14 @@
       "securityWatch",
       "trackerLearn",
       "privacySignals",
+      "dnsDefense",
+      "forceEnglish",
+      "linkPreview",
+      "textSelection",
+      "videoPip",
+      "readerMode",
+      "quizAssist",
+      "aiAssistant",
     ]);
 
     /**
@@ -1126,12 +1573,20 @@
     await minerBlock.apply(status.enabled, status.features.minerBlock);
     await strictTracking.apply(status.enabled, status.features.strictTracking);
     await privacySignals.apply(status.enabled, status.features.privacySignals);
+    await forceEnglish.apply(status.enabled, status.features.forceEnglish !== false);
     await trackerLearner.applyRules(
       status.enabled && status.features.trackerLearn !== false
     );
     await tempAllow.apply();
     await userAgent.apply(opts);
     await siteRuleStore.hydrate();
+    try {
+      if (globalThis.AblUserRules?.UserRuleStore) {
+        await globalThis.AblUserRules.UserRuleStore.applyOnStartup();
+      }
+    } catch {
+      // ignore user-rule sync failures
+    }
     await listUpdater.schedule();
     if (opts.syncLists) {
       await listUpdater.sync();
@@ -1374,6 +1829,69 @@
           activityLog.clear().then(() => sendResponse({ ok: true }));
           return true;
         }],
+        ["exceptionFromLog", (message, sendResponse) => {
+          const host = String(message.host || "")
+            .replace(/^www\./, "")
+            .toLowerCase();
+          const mode = message.temp ? null : "allow";
+          const minutes = Number(message.minutes) || 60;
+          if (!host) {
+            sendResponse({ ok: false, reason: "host" });
+            return true;
+          }
+          (async () => {
+            if (message.temp) {
+              await tempAllow.set(host, minutes);
+              await this._store.setSitePaused(host, false);
+              if (!(await this._store.getStatus()).features.quietMode) {
+                await activityLog.append({
+                  kind: globalThis.AblActivityLog.ActivityLogStore.kinds.siteRule,
+                  title: `Temporary allow · ${minutes}m (from log)`,
+                  detail: host,
+                  host,
+                });
+              }
+              ActiveTabEnforcer.schedule({ preferHttps: true });
+              sendResponse({ ok: true, host, mode: "temp", minutes });
+              return;
+            }
+            await siteRuleStore.setMode(host, "allow");
+            await this._store.setSitePaused(host, false);
+            await tempAllow.set(host, 0);
+            if (!(await this._store.getStatus()).features.quietMode) {
+              await activityLog.append({
+                kind: globalThis.AblActivityLog.ActivityLogStore.kinds.siteRule,
+                title: "Whitelisted site (from activity log)",
+                detail: host,
+                host,
+              });
+            }
+            ActiveTabEnforcer.schedule({ preferHttps: true });
+            sendResponse({ ok: true, host, mode: "allow" });
+          })().catch((err) => sendResponse({ ok: false, error: String(err) }));
+          return true;
+        }],
+        ["getUserRules", (message, sendResponse) => {
+          globalThis.AblUserRules.UserRuleStore.load().then(sendResponse);
+          return true;
+        }],
+        ["setUserRules", (message, sendResponse) => {
+          const text = String(message.text || "");
+          globalThis.AblUserRules.UserRuleStore.save(text)
+            .then(async (parsed) => {
+              ActiveTabEnforcer.schedule({});
+              if (!(await this._store.getStatus()).features.quietMode) {
+                await activityLog.append({
+                  kind: globalThis.AblActivityLog.ActivityLogStore.kinds.system,
+                  title: "User rules saved",
+                  detail: `${parsed.blocks.length} blocks · ${Object.keys(parsed.cosmetics).length} cosmetic hosts`,
+                });
+              }
+              sendResponse({ ok: true, ...parsed });
+            })
+            .catch((err) => sendResponse({ ok: false, error: String(err) }));
+          return true;
+        }],
         ["logActivity", (message, sendResponse) => {
           const entry = message.entry || {};
           if (!entry.kind || !entry.title) {
@@ -1516,6 +2034,322 @@
           });
           return true;
         }],
+        ["getDnsDefenseStatus", (_message, sendResponse) => {
+          this._store.getStatus().then((status) => {
+            if (!status.enabled || status.features.dnsDefense === false) {
+              sendResponse({ ok: false, disabled: true });
+              return;
+            }
+            sendResponse(dnsDefense ? dnsDefense.status() : { ok: false, disabled: true });
+          });
+          return true;
+        }],
+        ["forceEnglishNavigate", (message, sendResponse, sender) => {
+          this._store.getStatus().then(async (status) => {
+            if (!status.enabled || status.features.forceEnglish === false) {
+              sendResponse({ ok: false, disabled: true });
+              return;
+            }
+            const url = String(message.url || "");
+            if (!/^https:\/\/[a-z0-9.-]+\.translate\.goog(\/|$|\?)/i.test(url)) {
+              sendResponse({ ok: false, error: "invalid_proxy" });
+              return;
+            }
+            try {
+              const tabId = sender?.tab?.id;
+              if (!tabId) {
+                sendResponse({ ok: false, error: "no_tab" });
+                return;
+              }
+              await chrome.tabs.update(tabId, { url });
+              sendResponse({ ok: true });
+            } catch (err) {
+              sendResponse({ ok: false, error: String(err?.message || err) });
+            }
+          });
+          return true;
+        }],
+        ["translateToEnglish", (message, sendResponse) => {
+          this._store.getStatus().then(async (status) => {
+            if (!status.enabled || status.features.forceEnglish === false) {
+              sendResponse({ ok: false, disabled: true, texts: [] });
+              return;
+            }
+            const texts = Array.isArray(message.texts) ? message.texts.map((t) => String(t ?? "")) : [];
+            if (!texts.length) {
+              sendResponse({ ok: true, texts: [] });
+              return;
+            }
+            try {
+              const result = await ForceEnglishTranslator.translateMany(texts, "auto", "en");
+              sendResponse({ ok: true, texts: result.texts, detected: result.detected });
+            } catch (err) {
+              sendResponse({
+                ok: false,
+                error: String(err?.message || err),
+                texts,
+              });
+            }
+          });
+          return true;
+        }],
+        ["translateSelection", (message, sendResponse) => {
+          this._store.getStatus().then(async (status) => {
+            if (!status.enabled || status.features.textSelection === false) {
+              sendResponse({ ok: false, disabled: true, text: "", detected: "" });
+              return;
+            }
+            const text = String(message.text || "").slice(0, 4500);
+            const from = String(message.from || "auto");
+            const to = String(message.to || "en");
+            if (!text.trim()) {
+              sendResponse({ ok: true, text: "", detected: from });
+              return;
+            }
+            try {
+              const result = await ForceEnglishTranslator.translateMany([text], from, to);
+              sendResponse({
+                ok: true,
+                text: result.texts[0] || text,
+                detected: result.detected,
+                segments: result.segments?.[0] || [],
+              });
+            } catch (err) {
+              sendResponse({
+                ok: false,
+                error: String(err?.message || err),
+                text,
+                detected: from,
+                segments: [],
+              });
+            }
+          });
+          return true;
+        }],
+        ["previewLink", (message, sendResponse) => {
+          this._store.getStatus().then(async (status) => {
+            if (!status.enabled || status.features.linkPreview === false) {
+              sendResponse({ ok: false, disabled: true });
+              return;
+            }
+            try {
+              const report = await LinkPreviewService.inspect(
+                String(message.url || ""),
+                String(message.kind || "page")
+              );
+              sendResponse(report);
+            } catch (err) {
+              sendResponse({ ok: false, error: String(err?.message || err) });
+            }
+          });
+          return true;
+        }],
+        ["getAiSettings", (_message, sendResponse) => {
+          const Ai = globalThis.AblAi?.NvidiaAiSettings;
+          if (!Ai) {
+            sendResponse({ ok: false, error: "ai_unavailable" });
+            return false;
+          }
+          Ai.get().then((s) => sendResponse({ ok: true, ...s, apiKey: s.hasKey ? "••••••••" : "" }));
+          return true;
+        }],
+        ["setAiSettings", (message, sendResponse) => {
+          const Ai = globalThis.AblAi?.NvidiaAiSettings;
+          if (!Ai) {
+            sendResponse({ ok: false, error: "ai_unavailable" });
+            return false;
+          }
+          const patch = {};
+          if (message.enabled !== undefined) patch.enabled = Boolean(message.enabled);
+          if (message.model !== undefined) patch.model = String(message.model || "");
+          if (message.apiKey !== undefined) {
+            const key = String(message.apiKey || "").trim();
+            // Ignore masked placeholder so we don't wipe a real key
+            if (key && !/^•+$/.test(key)) patch.apiKey = key;
+            if (message.clearKey) patch.apiKey = "";
+          }
+          Ai.set(patch).then((s) => sendResponse({ ok: true, ...s }));
+          return true;
+        }],
+        ["aiExplainAlert", (message, sendResponse) => {
+          this._store.getStatus().then(async (status) => {
+            if (!status.enabled || status.features.aiAssistant === false) {
+              sendResponse({ ok: false, disabled: true });
+              return;
+            }
+            const Chat = globalThis.AblAi?.NvidiaChatClient;
+            if (!Chat) {
+              sendResponse({ ok: false, error: "ai_unavailable" });
+              return;
+            }
+            try {
+              const result = await Chat.explainAlert(message.entry || {});
+              sendResponse(result);
+            } catch (err) {
+              sendResponse({ ok: false, error: String(err?.message || err) });
+            }
+          });
+          return true;
+        }],
+        ["aiAnswerQuiz", (message, sendResponse) => {
+          let replied = false;
+          const reply = (payload) => {
+            if (replied) return;
+            replied = true;
+            try {
+              sendResponse(payload);
+            } catch {
+              // channel already closed
+            }
+          };
+          (async () => {
+            const status = await this._store.getStatus();
+            const fromSelection = message?.source === "selection" || Boolean(message?.text);
+            if (!status.enabled) {
+              reply({ ok: false, error: "disabled" });
+              return;
+            }
+            if (
+              status.features.quizAssist === false &&
+              (!fromSelection || status.features.textSelection === false)
+            ) {
+              reply({ ok: false, error: "disabled" });
+              return;
+            }
+            const Chat = globalThis.AblAi?.NvidiaChatClient;
+            if (!Chat) {
+              reply({ ok: false, error: "ai_unavailable" });
+              return;
+            }
+            let result;
+            if (fromSelection && message.text) {
+              result = await Chat.answerSelectionQuiz({
+                text: message.text,
+                host: message.host,
+              });
+            } else {
+              result = await Chat.answerQuiz({
+                question: message.question,
+                choices: message.choices,
+                host: message.host,
+                mode: message.mode,
+                maxLen: message.maxLen,
+              });
+            }
+            reply(result && typeof result === "object" ? result : { ok: false, error: "empty_result" });
+          })().catch((err) => {
+            reply({ ok: false, error: String(err?.message || err || "quiz_failed") });
+          });
+          return true;
+        }],
+        ["aiAnalyzeActiveTab", (_message, sendResponse) => {
+          this._store.getStatus().then(async (status) => {
+            if (!status.enabled || status.features.aiAssistant === false) {
+              sendResponse({ ok: false, disabled: true });
+              return;
+            }
+            const Chat = globalThis.AblAi?.NvidiaChatClient;
+            if (!Chat) {
+              sendResponse({ ok: false, error: "ai_unavailable" });
+              return;
+            }
+            try {
+              const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+              const tab = tabs[0];
+              if (!tab?.id || !tab.url) {
+                sendResponse({ ok: false, error: "no_tab" });
+                return;
+              }
+              let parsed;
+              try {
+                parsed = new URL(tab.url);
+              } catch {
+                sendResponse({ ok: false, error: "bad_url" });
+                return;
+              }
+              if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+                sendResponse({ ok: false, error: "unsupported_page" });
+                return;
+              }
+
+              let fingerprint = null;
+              try {
+                fingerprint = await chrome.tabs.sendMessage(tab.id, { type: "collectPageTech" });
+                fingerprint = fingerprint?.fingerprint || null;
+              } catch {
+                fingerprint = null;
+              }
+              if (!fingerprint) {
+                fingerprint = {
+                  url: tab.url,
+                  host: parsed.hostname.replace(/^www\./, ""),
+                  title: tab.title || "",
+                  note: "Content probe unavailable — using tab metadata only",
+                };
+              }
+
+              // Server / CDN response headers (service worker has host access)
+              try {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 5000);
+                const res = await fetch(parsed.href, {
+                  method: "GET",
+                  redirect: "follow",
+                  credentials: "omit",
+                  signal: ctrl.signal,
+                  headers: { Accept: "text/html", "User-Agent": "GOSAFE-PageProbe/1.0" },
+                });
+                clearTimeout(timer);
+                try {
+                  res.body?.cancel?.();
+                } catch {
+                  // ignore
+                }
+                const want = [
+                  "server",
+                  "x-powered-by",
+                  "via",
+                  "cf-ray",
+                  "cf-cache-status",
+                  "x-vercel-id",
+                  "x-vercel-cache",
+                  "x-shopify-stage",
+                  "x-generator",
+                  "x-drupal-cache",
+                  "x-aspnet-version",
+                  "strict-transport-security",
+                  "content-security-policy",
+                  "x-frame-options",
+                  "x-content-type-options",
+                  "referrer-policy",
+                  "permissions-policy",
+                  "report-to",
+                  "nel",
+                ];
+                const headers = {};
+                for (const name of want) {
+                  const v = res.headers.get(name);
+                  if (v) headers[name] = String(v).slice(0, 240);
+                }
+                fingerprint.serverHints = {
+                  finalUrl: res.url || parsed.href,
+                  status: res.status,
+                  headers,
+                };
+              } catch (err) {
+                fingerprint.serverHints = {
+                  error: String(err?.message || err || "header_probe_failed"),
+                };
+              }
+
+              const result = await Chat.analyzePage(fingerprint);
+              sendResponse({ ...result, fingerprint });
+            } catch (err) {
+              sendResponse({ ok: false, error: String(err?.message || err) });
+            }
+          });
+          return true;
+        }],
         ["getWebRtcStatus", (_message, sendResponse) => {
           sendResponse({ ok: true, ...webrtc.status });
           return false;
@@ -1610,11 +2444,11 @@
      * @param {(value: any) => void} sendResponse
      * @returns {boolean}
      */
-    dispatch(message, sendResponse) {
+    dispatch(message, sendResponse, sender) {
       const type = message?.type;
       const handler = type ? this._handlers.get(type) : null;
       if (!handler) return false;
-      return Boolean(handler(message, sendResponse));
+      return Boolean(handler(message, sendResponse, sender));
     }
   }
 
@@ -1629,6 +2463,7 @@
   const minerBlock = new MinerBlockController();
   const strictTracking = new StrictTrackingController();
   const privacySignals = new PrivacySignalsController();
+  const forceEnglish = new ForceEnglishController();
   const siteFeatureOverrides = new SiteFeatureOverrideStore();
   const privacyMode = new PrivacyModeController(store);
   const securityFirewall = new SecurityFirewallStore();
@@ -1682,6 +2517,10 @@
     (host) => listUpdater.lookup(host)
   );
   listUpdater.hydrate?.().catch(() => {});
+  const dnsDefense =
+    globalThis.AblDnsDefense?.DnsDefenseEngine
+      ? new globalThis.AblDnsDefense.DnsDefenseEngine()
+      : null;
   const activityLog = globalThis.AblActivityLog
     ? new globalThis.AblActivityLog.ActivityLogStore()
     : {
@@ -1692,10 +2531,69 @@
         async clear() {},
         async ensureStarted() {},
         async recordBlock() {},
+        async setTip() {
+          return false;
+        },
         async dashboard() {
           return { entries: [], kpis: {}, features: [] };
         },
       };
+
+  /**
+   * Silent one-line tips on serious alerts — no popup UI.
+   * Runs only when an NVIDIA API key is already stored.
+   */
+  class SilentAlertTips {
+    static #KINDS = new Set(["phishing", "dns", "hijack", "soft_nav", "download", "site_block"]);
+    static #lastAt = 0;
+    static #MIN_GAP_MS = 20_000;
+    static #busy = false;
+
+    /**
+     * @param {{ id?: string, kind?: string, title?: string, detail?: string, host?: string }} entry
+     */
+    static maybeEnrich(entry) {
+      if (!entry?.id || !SilentAlertTips.#KINDS.has(String(entry.kind || ""))) return;
+      if (SilentAlertTips.#busy) return;
+      const now = Date.now();
+      if (now - SilentAlertTips.#lastAt < SilentAlertTips.#MIN_GAP_MS) return;
+      SilentAlertTips.#busy = true;
+      SilentAlertTips.#lastAt = now;
+      (async () => {
+        try {
+          const Ai = globalThis.AblAi;
+          if (!Ai?.NvidiaAiSettings || !Ai?.NvidiaChatClient) return;
+          const settings = await Ai.NvidiaAiSettings.get();
+          if (!settings.hasKey || settings.enabled === false) return;
+          const result = await Ai.NvidiaChatClient.silentTip(entry);
+          if (!result?.ok || !result.text) return;
+          await activityLog.setTip(entry.id, result.text);
+        } catch {
+          // silent
+        } finally {
+          SilentAlertTips.#busy = false;
+        }
+      })();
+    }
+
+    /** Wrap activityLog.append so serious events get a tip in the background. */
+    static install(log) {
+      if (!log || typeof log.append !== "function") return log;
+      const original = log.append.bind(log);
+      log.append = async (partial) => {
+        const entry = await original(partial);
+        try {
+          SilentAlertTips.maybeEnrich(entry);
+        } catch {
+          // ignore
+        }
+        return entry;
+      };
+      return log;
+    }
+  }
+
+  SilentAlertTips.install(activityLog);
   const router = new MessageRouter(store, mirrors);
 
   async function cancelDownload(id) {
@@ -1819,6 +2717,22 @@
           host: verdict.host || host,
         });
       }
+
+      // Real-time DNS spoof / rebinding check (multi-resolver consensus).
+      if (dnsDefense) {
+        const st = await store.getStatus();
+        if (st.enabled && st.features.dnsDefense !== false) {
+          const spoof = await dnsDefense.checkSpoof(host);
+          if (spoof && !st.features.quietMode) {
+            await activityLog.append({
+              kind: globalThis.AblActivityLog.ActivityLogStore.kinds.dns,
+              title: spoof.title,
+              detail: spoof.detail,
+              host: spoof.host || host,
+            });
+          }
+        }
+      }
     } catch (err) {
       console.warn("GOSAFE adblock navigation guard failed:", err);
     }
@@ -1837,7 +2751,7 @@
 
   /** Only count / log real block actions — allowlist matches are NOT blocks. */
   class MatchedRuleClassifier {
-    static SKIP_RULESETS = new Set(["allowlist", "https_upgrade"]);
+    static SKIP_RULESETS = new Set(["allowlist", "https_upgrade", "trackparams"]);
 
     /**
      * @param {{ rule?: { rulesetId?: string, ruleId?: number } }} info
@@ -1851,6 +2765,7 @@
       // Dynamic rules: UA spoof + site allow are not blocks.
       if (rulesetId === "_dynamic" || rulesetId === "_session") {
         if (ruleId === 9001) return false; // User-Agent modifyHeaders
+        if (ruleId === 9003) return false; // Force English Accept-Language
         if (ruleId === 9101) return false; // per-site allow
         if (ruleId === 9102) return false; // temporary allow
         if (ruleId === 9401) return false; // strict tracking referer strip
@@ -1873,15 +2788,29 @@
       if (rulesetId.startsWith("blocklist")) return "HaGeZi / static lists";
       if (rulesetId.startsWith("urlfilter")) return "URL filters";
       if (rulesetId === "protections") return "Protections";
+      if (rulesetId === "d3host") return "d3ward hosts";
+      if (rulesetId === "redirects") return "Redirect stubs";
+      if (rulesetId === "trackparams") return "URL tracking strip";
       if (rulesetId === "spotify") return "Spotify";
       if (rulesetId === "_dynamic" || rulesetId === "_session") {
         if (ruleId >= 10000) return "Live phishing / NRD";
-        if (ruleId >= 9500 && ruleId < 10000) return "Learned trackers";
+        if (ruleId >= 9600 && ruleId < 9700) return "User rules";
+        if (ruleId >= 9500 && ruleId < 9600) return "Learned trackers";
         if (ruleId === 9300) return "Miner block";
         if (ruleId >= 9200 && ruleId < 9300) return "Site block rule";
         return "Dynamic rules";
       }
       return rulesetId || "rules";
+    }
+
+    /**
+     * @param {{ rule?: { rulesetId?: string, ruleId?: number } }} info
+     * @returns {"block" | "redirect"}
+     */
+    static actionKind(info) {
+      const rulesetId = String(info?.rule?.rulesetId || "");
+      if (rulesetId === "redirects" || rulesetId === "trackparams") return "redirect";
+      return "block";
     }
   }
 
@@ -1893,8 +2822,10 @@
         url: info?.request?.url,
         initiator: info?.request?.initiator,
         rulesetId: info?.rule?.rulesetId,
+        ruleId: info?.rule?.ruleId,
         source: MatchedRuleClassifier.sourceLabel(info),
         type: info?.request?.type,
+        action: MatchedRuleClassifier.actionKind(info),
       });
       const initiatorHost = globalThis.AblDs?.HostKey?.fromUrl
         ? globalThis.AblDs.HostKey.fromUrl(info?.request?.initiator || "")
@@ -1930,17 +2861,46 @@
     await cancelDownload(item.id);
   });
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    return router.dispatch(message, sendResponse);
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    return router.dispatch(message, sendResponse, sender);
   });
 
-  // Privacy Badger–style observation of third-party requests.
+  // Privacy Badger–style observation of third-party requests + DNS tunnel heuristics.
   if (chrome.webRequest?.onCompleted) {
     chrome.webRequest.onCompleted.addListener(
       async (details) => {
         try {
           const status = await store.getStatus();
-          if (!status.enabled || status.features.trackerLearn === false) return;
+          if (!status.enabled) return;
+
+          if (dnsDefense && status.features.dnsDefense !== false) {
+            let reqHost = "";
+            try {
+              reqHost = new URL(details.url || "").hostname;
+            } catch {
+              reqHost = "";
+            }
+            if (reqHost) {
+              const tunnel = dnsDefense.observeHostname(reqHost);
+              if (tunnel && !status.features.quietMode) {
+                await activityLog.append({
+                  kind: globalThis.AblActivityLog.ActivityLogStore.kinds.dns,
+                  title: tunnel.title,
+                  detail: tunnel.detail,
+                  host: tunnel.host,
+                  initiator: (() => {
+                    try {
+                      return globalThis.AblDs.HostKey.fromUrl(details.initiator || "") || "";
+                    } catch {
+                      return "";
+                    }
+                  })(),
+                });
+              }
+            }
+          }
+
+          if (status.features.trackerLearn === false) return;
           const result = await trackerLearner.observe(details);
           if (result?.promoted && !status.features.quietMode) {
             await activityLog.append({

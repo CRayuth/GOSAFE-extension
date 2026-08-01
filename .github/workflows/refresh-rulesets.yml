@@ -1,0 +1,51 @@
+name: Refresh rulesets
+
+on:
+  schedule:
+    # Daily 06:00 UTC
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Blocklist profile"
+        required: true
+        default: "handtuned"
+        type: choice
+        options:
+          - handtuned
+          - lite
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refresh hand-tuned rulesets
+        if: ${{ github.event_name == 'schedule' || inputs.profile == 'handtuned' }}
+        run: python scripts/refresh_rulesets.py
+
+      - name: Refresh lite blocklists
+        if: ${{ inputs.profile == 'lite' }}
+        run: python scripts/refresh_rulesets.py --lite
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- rules/ manifest.json; then
+            echo "No ruleset changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rules/ manifest.json || true
+          git commit -m "chore: refresh DNR rulesets"
+          git push

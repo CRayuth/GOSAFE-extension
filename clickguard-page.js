@@ -81,11 +81,116 @@
       );
     }
 
-    /** Sports / illegal-stream mirrors that inject home/ad bounce scripts. */
+    /** Gmail / Workspace — MAIN-world patches cause Gmail error #2014. */
+    static isGoogleApp() {
+      const host = SiteContext.hostname();
+      if (host === "gmail.com" || host.endsWith(".gmail.com")) return true;
+      if (host === "googleusercontent.com" || host.endsWith(".googleusercontent.com")) {
+        return true;
+      }
+      if (!(host === "google.com" || host.endsWith(".google.com"))) return false;
+      return /^(mail|accounts|docs|drive|calendar|meet|chat|contacts|photos|sheets|slides|classroom|keep|script|sites|admin|myaccount|workspace|ogs|hangouts|inbox|tasks|news|play)\./i.test(
+        host
+      );
+    }
+
+    /** Facebook / Messenger / Instagram — overlays + scriptlets corrupt buttons. */
+    static isMetaApp() {
+      const host = SiteContext.hostname();
+      return (
+        host === "facebook.com" ||
+        host.endsWith(".facebook.com") ||
+        host === "fb.com" ||
+        host.endsWith(".fb.com") ||
+        host === "messenger.com" ||
+        host.endsWith(".messenger.com") ||
+        host === "instagram.com" ||
+        host.endsWith(".instagram.com") ||
+        host === "meta.com" ||
+        host.endsWith(".meta.com") ||
+        host === "threads.net" ||
+        host.endsWith(".threads.net") ||
+        host === "whatsapp.com" ||
+        host.endsWith(".whatsapp.com")
+      );
+    }
+
+    /** NVIDIA portals — heavy SPA UI. */
+    static isNvidiaApp() {
+      const host = SiteContext.hostname();
+      return (
+        host === "nvidia.com" ||
+        host.endsWith(".nvidia.com") ||
+        host === "nvidiagrid.net" ||
+        host.endsWith(".nvidiagrid.net") ||
+        host === "auth0.com" ||
+        host.endsWith(".auth0.com")
+      );
+    }
+
+    static isEducationLms() {
+      const h = SiteContext.hostname();
+      if (/\.edu(\.[a-z]{2})?$/i.test(h) || /\.ac\.[a-z]{2}$/i.test(h)) return true;
+      if (
+        /^(moodle|canvas|blackboard|brightspace|schoology|classroom|elearning|e-learning|lms)\./i.test(
+          h
+        )
+      ) {
+        return true;
+      }
+      return /moodle|elearning|instructure\.com|blackboard|brightspace|schoology/i.test(h);
+    }
+
+    static isSoftPageExempt() {
+      return (
+        SiteContext.isGoogleApp() ||
+        SiteContext.isMetaApp() ||
+        SiteContext.isNvidiaApp() ||
+        SiteContext.isCanva() ||
+        SiteContext.isEducationLms()
+      );
+    }
+
+    /** Sites whose product UI uses large fixed overlays / dialogs. */
+    static isDialogSensitive() {
+      const host = SiteContext.hostname();
+      return (
+        host === "github.com" ||
+        host.endsWith(".github.com") ||
+        host === "gitlab.com" ||
+        host.endsWith(".gitlab.com") ||
+        host === "bitbucket.org" ||
+        host.endsWith(".bitbucket.org") ||
+        host === "notion.so" ||
+        host.endsWith(".notion.so") ||
+        host === "figma.com" ||
+        host.endsWith(".figma.com") ||
+        host === "linear.app" ||
+        host.endsWith(".linear.app") ||
+        host === "atlassian.net" ||
+        host.endsWith(".atlassian.net")
+      );
+    }
+
+    /** Sports / illegal-stream / movie mirrors that inject home/ad bounce scripts. */
     static isStreamSite() {
       const host = SiteContext.hostname();
-      return /stream|sport|fight|nba|nfl|mlb|nhl|soccer|footy|kick|playoff|streameast|streamseast|totalsportek|sportsurge|buffstream|crackstream|weakstream/i.test(
-        host
+      const path = (location.pathname || "").toLowerCase();
+      if (
+        /stream|sport|soccer|football|fight|nba|nfl|mlb|nhl|footy|kick|playoff|live|liveru|livetv|streameast|streamseast|totalsportek|sportsurge|buffstream|crackstream|weakstream|movie|film|khhd|anime|drama|series|rbtv|rbtvplus|superabbit|rbgoal/i.test(
+          host
+        )
+      ) {
+        return true;
+      }
+      return /\/(soccer|football|live|match|stream|watch|movie|episode|play)\b/i.test(path);
+    }
+
+    /** Third-party embed / HLS hosts — never treat as hijacks. */
+    static isStreamEmbedHost(hostname) {
+      const h = String(hostname || "").toLowerCase();
+      return /(?:^|\.)(rpmvip\.com|filemoon\.|streamwish\.|streamtape\.|rabbitstream\.|megacloud\.|vidsrc\.|dood\.|mixdrop\.|mp4upload\.|voe\.sx|kwik\.|moviekhhd\.|khfullhd\.|khanime\.|bunnycdn\.|mediadelivery\.|cloudflarestream\.|jwplayer\.|jwpcdn\.|plyr\.io|googlevideo\.com|tcxru135mdqf\.ru|ta2mnt200stayr2\.cfd)/i.test(
+        h
       );
     }
 
@@ -151,13 +256,27 @@
     }
   }
 
-  /** Known ad / affiliate / popunder destinations. */
+  /** Known ad / affiliate / popunder / play-button hijack destinations. */
   class HijackUrlMatcher {
     static #BAD =
-      /s\.click\.aliexpress\.com|click\.aliexpress\.com|s\.click\.taobao\.com|1xlite-|1xbet|1xstavka|refpa\.top|refpaiwqns|mostbet\.com|melbet\.com|linebet\.com|betwinner\.com|trip\.com[^"'\s]*Allianceid=|trip\.com[^"'\s]*trip_sub1=|trip\.com[^"'\s]*[?&]SID=|popads\.net|propellerads|exoclick|juicyads|ouo\.io|adf\.ly|onclkds|onclicksuper|trafficjunky|clickadu|hilltopads|adsterra|adcash|popcash|popmyads|shorte\.st|bc\.vc|adfly|profitableratecpm|trafficstars|admaven|adspyglass|route\.cpm|redirect\.cpm|go\.redirectingat\.com|shrsl\.com|linksynergy|pjatr\.com|anrdoezrs\.net|dpbolvw\.net|tkqlhce\.com|jdoqocy\.com|kqzyfj\.com/i;
+      /s\.click\.aliexpress\.com|click\.aliexpress\.com|s\.click\.taobao\.com|1xlite-|1xbet|1xstavka|refpa\.top|refpaiwqns|mostbet\.com|melbet\.com|linebet\.com|betwinner\.com|trip\.com[^"'\s]*Allianceid=|trip\.com[^"'\s]*trip_sub1=|trip\.com[^"'\s]*[?&]SID=|popads\.net|propellerads|exoclick|juicyads|ouo\.io|adf\.ly|onclkds|onclicksuper|trafficjunky|clickadu|hilltopads|adsterra|adcash|popcash|popmyads|shorte\.st|bc\.vc|adfly|profitableratecpm|trafficstars|admaven|adspyglass|route\.cpm|redirect\.cpm|go\.redirectingat\.com|shrsl\.com|linksynergy|pjatr\.com|anrdoezrs\.net|dpbolvw\.net|tkqlhce\.com|jdoqocy\.com|kqzyfj\.com|spinreward\.|rewardspin\.|bk8top\.|free.?spin.?reward|claim.?your.?reward|lucky.?spin|zone_id=\d+.*conversions_tracking=|conversions_tracking=.*zone_id=/i;
+
+    static isRewardScam(url) {
+      const s = String(url || "");
+      if (/spinreward\.|rewardspin\.|bk8top\.|spin-to-win|spintowin|freespin|claim-?reward|lucky.?spin|reward.?click/i.test(s)) {
+        return true;
+      }
+      // Typical CPA popunder query shape used on pirate play buttons
+      if (/[?&]conversions_tracking=/i.test(s) && /[?&]zone_id=/i.test(s)) return true;
+      if (/\.(click|icu|cfd|sbs|buzz|top)(?:\/|$|\?)/i.test(s) && /spin|reward|bonus|gift|claim|prize/i.test(s)) {
+        return true;
+      }
+      return false;
+    }
 
     static isBad(url) {
-      return HijackUrlMatcher.#BAD.test(String(url || ""));
+      const s = String(url || "");
+      return HijackUrlMatcher.#BAD.test(s) || HijackUrlMatcher.isRewardScam(s);
     }
 
     static isBlank(url) {
@@ -202,12 +321,35 @@
       if (!(el instanceof HTMLElement)) return false;
       if (el === document.documentElement || el === document.body) return false;
       if (SiteContext.isPlayerChrome(el)) return false;
+      // Movie sites disguise the real player as iframe.ads — never neutralize it.
+      if (el.tagName === "IFRAME") {
+        const name = (el.getAttribute("name") || "").toLowerCase();
+        const cls = String(el.className || "").toLowerCase();
+        const allow = (el.getAttribute("allow") || "").toLowerCase();
+        const src = el.getAttribute("src") || el.src || "";
+        if (name === "player" || name === "iframe_player") return false;
+        if (/\b(player|embed|video)\b/.test(cls)) return false;
+        if (allow.includes("autoplay") || allow.includes("fullscreen")) return false;
+        try {
+          if (src && SiteContext.isStreamEmbedHost(new URL(src, location.href).hostname)) {
+            return false;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      // Never touch real product dialogs / modal chrome (GitHub "See more", etc.)
+      if (
+        el.closest?.(
+          "[role='dialog'], dialog, [aria-modal='true'], [data-portal], [id*='portal' i], [class*='Overlay' i], [class*='Popover' i], [class*='SelectMenu' i], #player, .player, [name='player']"
+        )
+      ) {
+        return false;
+      }
+      if (SiteContext.isDialogSensitive()) return false;
       // Player shells / control layers often wrap the media element.
       if (el.querySelector?.("video, audio, iframe[src], input, [role='slider']")) {
         return false;
-      }
-      if (el.closest("video, audio, iframe, [role='dialog'], dialog, form, nav, header")) {
-        // dialogs can be large; only flag if also invisible
       }
 
       const style = window.getComputedStyle(el);
@@ -400,6 +542,17 @@
           if (HijackUrlMatcher.isBad(href)) return null;
 
           if (!SiteContext.sameSite(href)) {
+            try {
+              const host = new URL(href, location.href).hostname;
+              if (SiteContext.isStreamEmbedHost(host)) {
+                return originalOpen.apply(this, [url, ...rest]);
+              }
+            } catch {
+              // ignore
+            }
+            // Movie/stream watch pages: play-button hijacks open spin/CPA tabs
+            if (SiteContext.isStreamSite()) return null;
+
             const recentClick = Date.now() - WindowOpenGuard.#lastTrustedClickAt < 2000;
             if (!recentClick) return null;
             if (LocationHijackGuard.wasOverlayGesture()) return null;
@@ -538,6 +691,8 @@
       try {
         const next = new URL(String(url), location.href);
         if (next.protocol !== "http:" && next.protocol !== "https:") return false;
+        // Always allow player / embed destinations (iframe.location.href swaps).
+        if (SiteContext.isStreamEmbedHost(next.hostname)) return false;
         if (HijackUrlMatcher.isBad(next.href)) {
           EventBus.emit({
             kind: "hijack",
@@ -548,6 +703,15 @@
         }
 
         if (!SiteContext.sameSite(next.href)) {
+          // Watch pages: never navigate the top tab to ads/CPA on play
+          if (SiteContext.isStreamSite()) {
+            EventBus.emit({
+              kind: "soft_nav",
+              title: "Blocked play-button hijack",
+              detail: next.hostname,
+            });
+            return true;
+          }
           if (LocationHijackGuard.wasOverlayGesture()) {
             EventBus.emit({
               kind: "soft_nav",
@@ -680,7 +844,7 @@
 
   class ClickGuardApp {
     start() {
-      if (SiteContext.isYouTube() || SiteContext.isCanva()) return;
+      if (SiteContext.isYouTube() || SiteContext.isSoftPageExempt()) return;
       LocationHijackGuard.install();
       WindowOpenGuard.install();
       ClickPathGuard.install();

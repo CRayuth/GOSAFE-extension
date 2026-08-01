@@ -1,0 +1,195 @@
+[
+  {
+    "id": 1,
+    "priority": 1110,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/web-accessible-resources/redirects/empty.js"
+      }
+    },
+    "condition": {
+      "resourceTypes": [
+        "script",
+        "xmlhttprequest",
+        "other"
+      ],
+      "requestDomains": [
+        "googletagmanager.com",
+        "www.googletagmanager.com",
+        "google-analytics.com",
+        "www.google-analytics.com",
+        "ssl.google-analytics.com",
+        "region1.google-analytics.com",
+        "click.googleanalytics.com",
+        "analytics.google.com",
+        "adservice.google.com",
+        "pagead2.googlesyndication.com",
+        "pagead2.googleadservices.com",
+        "afs.googlesyndication.com",
+        "static.hotjar.com",
+        "script.hotjar.com",
+        "cdn.mouseflow.com",
+        "cdn.luckyorange.com",
+        "js.sentry-cdn.com",
+        "browser.sentry-cdn.com",
+        "cdn.ravenjs.com",
+        "connect.facebook.net",
+        "static.ads-twitter.com",
+        "platform.twitter.com",
+        "snap.licdn.com",
+        "px.ads.linkedin.com",
+        "scorecardresearch.com",
+        "sb.scorecardresearch.com",
+        "cdn.taboola.com",
+        "cdn.outbrain.com",
+        "static.criteo.net",
+        "bat.bing.com",
+        "clarity.ms",
+        "www.clarity.ms",
+        "scripts.clarity.ms"
+      ]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1110,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/web-accessible-resources/redirects/empty.css"
+      }
+    },
+    "condition": {
+      "resourceTypes": [
+        "stylesheet"
+      ],
+      "requestDomains": [
+        "googletagmanager.com",
+        "www.googletagmanager.com"
+      ]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1110,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/web-accessible-resources/redirects/1x1.gif"
+      }
+    },
+    "condition": {
+      "resourceTypes": [
+        "image",
+        "ping",
+        "xmlhttprequest",
+        "other"
+      ],
+      "requestDomains": [
+        "pixel.facebook.com",
+        "ads.linkedin.com",
+        "log.pinterest.com",
+        "trk.pinterest.com",
+        "googleads.g.doubleclick.net",
+        "ad.doubleclick.net",
+        "stats.g.doubleclick.net"
+      ]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1110,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/web-accessible-resources/redirects/1x1.gif"
+      }
+    },
+    "condition": {
+      "resourceTypes": [
+        "image",
+        "ping",
+        "xmlhttprequest",
+        "other"
+      ],
+      "urlFilter": "||facebook.com/tr?"
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1110,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/web-accessible-resources/redirects/1x1.gif"
+      }
+    },
+    "condition": {
+      "resourceTypes": [
+        "image",
+        "ping",
+        "xmlhttprequest",
+        "other"
+      ],
+      "urlFilter": "||facebook.com/tr/"
+    }
+  },
+  {
+    "id": 6,
+    "priority": 1110,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/web-accessible-resources/redirects/1x1.gif"
+      }
+    },
+    "condition": {
+      "resourceTypes": [
+        "image",
+        "ping",
+        "xmlhttprequest",
+        "other"
+      ],
+      "urlFilter": "||google-analytics.com/collect"
+    }
+  },
+  {
+    "id": 7,
+    "priority": 1110,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/web-accessible-resources/redirects/1x1.gif"
+      }
+    },
+    "condition": {
+      "resourceTypes": [
+        "image",
+        "ping",
+        "xmlhttprequest",
+        "other"
+      ],
+      "urlFilter": "||google-analytics.com/g/collect"
+    }
+  },
+  {
+    "id": 8,
+    "priority": 1110,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/web-accessible-resources/redirects/1x1.gif"
+      }
+    },
+    "condition": {
+      "resourceTypes": [
+        "image",
+        "ping",
+        "xmlhttprequest",
+        "other"
+      ],
+      "urlFilter": "||analytics.google.com/g/collect"
+    }
+  }
+]

@@ -4,7 +4,8 @@
   // MAIN world — strip ads from player API + skip/seek fallback while ad-showing.
 
   class PlayerApiMatcher {
-    static RE = /\/youtubei\/v1\/(player|get_watch)(?:\?|$)/;
+    static RE =
+      /\/youtubei\/v1\/(player|get_watch|next|browse|player\/[^?\s]+)(?:\?|$)/;
 
     static matches(url) {
       return PlayerApiMatcher.RE.test(String(url || ""));
@@ -18,8 +19,9 @@
    * Depth-capped to avoid pathological graphs.
    */
   class AdPayloadCleaner {
-    static #MAX_DEPTH = 20;
-    static #AD_KEYS = /^(adPlacements|playerAds|adSlots|adBreakHeartbeatParams|adBreaks)$/i;
+    static #MAX_DEPTH = 24;
+    static #AD_KEYS =
+      /^(adPlacements|playerAds|adSlots|adBreakHeartbeatParams|adBreaks|adTrackingData|playerAdParams|adParams|adSafetyReason|adReceived)$/i;
     static #AD_RENDERERS = new Set([
       "adPlacementRenderer",
       "playerAdRenderer",
@@ -27,6 +29,14 @@
       "adSlotRenderer",
       "instreamVideoAdRenderer",
       "adBreakRenderer",
+      "reelPlayerAdRenderer",
+      "adHoverTextButtonRenderer",
+      "adDurationRemainingRenderer",
+      "bannerPromoRenderer",
+      "mealbarPromoRenderer",
+      "brandVideoShelfRenderer",
+      "promotedSparklesWebRenderer",
+      "inPlayerAdRenderer",
     ]);
 
     static clean(value, depth = 0) {
@@ -53,6 +63,16 @@
           else delete value[key];
           continue;
         }
+        // Nested playerResponse / response copies
+        if (
+          key === "playerResponse" ||
+          key === "response" ||
+          key === "playerOverlays" ||
+          key === "auxiliaryUi"
+        ) {
+          AdPayloadCleaner.clean(value[key], depth + 1);
+          continue;
+        }
         const child = value[key];
         if (child && typeof child === "object") {
           AdPayloadCleaner.clean(child, depth + 1);
@@ -64,6 +84,9 @@
     static #isAdNode(item) {
       for (const key of AdPayloadCleaner.#AD_RENDERERS) {
         if (item[key]) return true;
+      }
+      for (const key of Object.keys(item)) {
+        if (/AdRenderer$/i.test(key) && typeof item[key] === "object") return true;
       }
       return false;
     }

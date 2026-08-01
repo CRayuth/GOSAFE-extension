@@ -37,6 +37,14 @@ SOURCES_FULL = [
         "cosmetics": False,
     },
     {
+        "id": "adguard_tracking",
+        "name": "AdGuard Tracking Protection",
+        "url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_3_Spyware/filter.txt",
+        "cache": CACHE_DIR / "adguard-tracking.txt",
+        "format": "adblock",
+        "cosmetics": True,
+    },
+    {
         "id": "oisd_big",
         "name": "OISD big (safe)",
         "url": "https://raw.githubusercontent.com/cbuijs/oisd/master/big/domains.safe",
@@ -213,6 +221,14 @@ SOURCES_LITE = [
     },
 ] + HAGEZI_SECURITY_EXTRAS + [
     {
+        "id": "adguard_tracking",
+        "name": "AdGuard Tracking Protection",
+        "url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_3_Spyware/filter.txt",
+        "cache": CACHE_DIR / "adguard-tracking.txt",
+        "format": "adblock",
+        "cosmetics": True,
+    },
+    {
         "id": "easylist",
         "name": "EasyList",
         "url": "https://easylist.to/easylist/easylist.txt",
@@ -341,11 +357,38 @@ ALLOWLIST_SUFFIXES = (
     "medium.build",
     "khfullhd.co",
     "khanime.co",
+    "moviekhhd.biz",
+    "moviekhhd.online",
+    "moviekhhd.com",
+    "rpmvip.com",
+    "seehd24.com",
+    "pixibay.cc",
+    "rbtvplus18.top",
+    "tcxru135mdqf.ru",
+    "ta2mnt200stayr2.cfd",
+    "cutty13dm.cfd",
     "canva.com",
     "canva.site",
     "canva.me",
     "canvausercontent.com",
     "canva-apps.com",
+    # Webflow marketplace / designer — Intellimize + website-files CDN required
+    "webflow.com",
+    "website-files.com",
+    "intellimize.co",
+    "intellimizeio.com",
+    # Facebook / Instagram video & CDN
+    "fbcdn.net",
+    "fbsbx.com",
+    "cdninstagram.com",
+    "facebook.net",
+    "fb.com",
+    "messenger.com",
+    "instagram.com",
+    "meta.com",
+    "threads.net",
+    "whatsapp.com",
+    "facebook.com",
     # Major sites — never block from noisy phishing CSVs
     "google.com",
     "gmail.com",
@@ -445,7 +488,14 @@ def apply_profile() -> str:
 
 
 def is_allowlisted(domain: str) -> bool:
+    """True if domain must never enter the global block set.
+
+    Tracker-shaped hosts under an allowlisted parent (e.g. analytics.google.com)
+    are NOT allowlisted — they stay eligible for DNR block / redirect rules.
+    """
     d = domain.lower().rstrip(".")
+    if looks_like_tracker_host(d):
+        return False
     for suffix in ALLOWLIST_SUFFIXES:
         if d == suffix or d.endswith("." + suffix):
             return True
@@ -476,6 +526,49 @@ TRACKER_ALLOW_FORBIDDEN = (
     "moatads",
     "amazon-adsystem",
 )
+
+# Subdomain labels that mark advertising / telemetry even on trusted eTLDs.
+TRACKER_HOST_LABELS = (
+    "ads",
+    "ad",
+    "adserver",
+    "adservice",
+    "analytics",
+    "pixel",
+    "metrics",
+    "telemetry",
+    "tracking",
+    "tracker",
+    "log",
+    "logs",
+    "logging",
+    "beacon",
+    "collect",
+    "pagead",
+    "pagead2",
+    "doubleclick",
+    "googletagmanager",
+    "google-analytics",
+    "googleadservices",
+    "googlesyndication",
+    "hotjar",
+    "sentry",
+    "bugsnag",
+    "clarity",
+    "scorecardresearch",
+)
+
+
+def looks_like_tracker_host(domain: str) -> bool:
+    """Heuristic: ads./analytics./pixel. etc. under any parent."""
+    d = domain.lower().rstrip(".")
+    if is_forbidden_global_allow(d):
+        return True
+    labels = d.split(".")
+    # Need at least subdomain.registrable.tld
+    if len(labels) < 3:
+        return False
+    return any(label in TRACKER_HOST_LABELS for label in labels[:-2])
 
 
 def is_forbidden_global_allow(domain: str) -> bool:
@@ -539,7 +632,10 @@ def parse_options(options: str | None) -> dict:
         if p in {"badfilter", "popup", "csp", "elemhide", "generichide", "genericblock", "document", "doc", "mp4", "empty", "rewrite"}:
             result["skip"] = True
             return result
-        if p.startswith("rewrite="):
+        if p.startswith("rewrite=") or p.startswith("removeparam") or p.startswith("removeparam="):
+            result["skip"] = True
+            return result
+        if "removeparam" in p:
             result["skip"] = True
             return result
         if p == "third-party" or p == "3p":
@@ -565,6 +661,11 @@ def parse_options(options: str | None) -> dict:
 
 def urlfilter_safe(pattern: str) -> bool:
     if not pattern or len(pattern) > 1000:
+        return False
+    # Chrome DNR: urlFilter must be ASCII-only.
+    try:
+        pattern.encode("ascii")
+    except UnicodeEncodeError:
         return False
     # DNR urlFilter does not support regex; reject control chars / unbalanced weirdness.
     if any(ch in pattern for ch in "\n\r\t"):
@@ -1153,7 +1254,7 @@ def update_manifest(ruleset_ids: list[str], block_count: int, cos_count: int) ->
     """Patch DNR resources only — never wipe name/permissions/content_scripts."""
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
-    hand_tuned = ["allowlist", "d3host", "protections", "https_upgrade"]
+    hand_tuned = ["allowlist", "d3host", "redirects", "trackparams", "protections", "https_upgrade"]
     resources = []
     for rid in hand_tuned:
         path = RULES_DIR / f"{rid}.json"

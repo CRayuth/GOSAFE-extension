@@ -79,11 +79,90 @@
         "khanime.co",
         "stream.khfullhd.co",
         "stream.khanime.co",
+        "moviekhhd.biz",
+        "moviekhhd.online",
+        "moviekhhd.com",
+        "rpmvip.com",
+        "seehd24.rpmvip.com",
+        "seehd24.com",
+        "pixibay.cc",
+        "rbtvplus18.top",
+        "tcxru135mdqf.ru",
+        "statics1.tcxru135mdqf.ru",
+        "apis-data10.tcxru135mdqf.ru",
+        "apis-data-defra10.tcxru135mdqf.ru",
+        "logos1.tcxru135mdqf.ru",
+        "ta2mnt200stayr2.cfd",
+        "apis-live.ta2mnt200stayr2.cfd",
+        "apis-live-defra.ta2mnt200stayr2.cfd",
         "canva.com",
         "canva.site",
         "canva.me",
         "canvausercontent.com",
         "canva-apps.com",
+        "netflix.com",
+        "spotify.com",
+        "scdn.co",
+        "spotifycdn.com",
+        "spoti.fi",
+        "byspotify.com",
+        "taobao.com",
+        "tmall.com",
+        "tmall.hk",
+        "alibaba.com",
+        "alicdn.com",
+        "aliexpress.com",
+        "alipay.com",
+        "alipayobjects.com",
+        "1688.com",
+        "mmstat.com",
+        "taobaocdn.com",
+        "tbcdn.cn",
+        "tbcdn.com",
+        "gw.alicdn.com",
+        "world.taobao.com",
+        "login.taobao.com",
+        "webflow.com",
+        "website-files.com",
+        "cdn.prod.website-files.com",
+        "code-components.website-files.com",
+        "nvidia.com",
+        "nvidiagrid.net",
+        "build.nvidia.com",
+        "integrate.api.nvidia.com",
+        "auth0.com",
+        "fbcdn.net",
+        "fbsbx.com",
+        "cdninstagram.com",
+        "fbcdn.com",
+        "facebook.net"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "stylesheet",
+        "script",
+        "image",
+        "font",
+        "object",
+        "xmlhttprequest",
+        "ping",
+        "media",
+        "websocket",
+        "webtransport",
+        "webbundle",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 900,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "requestDomains": [
         "google.com",
         "gmail.com",
         "facebook.com",
@@ -104,12 +183,6 @@
         "icloud.com",
         "amazon.com",
         "amazonaws.com",
-        "netflix.com",
-        "spotify.com",
-        "scdn.co",
-        "spotifycdn.com",
-        "spoti.fi",
-        "byspotify.com",
         "github.com",
         "githubusercontent.com",
         "gitlab.com",
@@ -135,7 +208,18 @@
         "anthropic.com",
         "cursor.com",
         "vercel.com",
-        "netlify.com"
+        "netlify.com",
+        "taobao.com",
+        "tmall.com",
+        "alibaba.com",
+        "alicdn.com",
+        "aliexpress.com",
+        "alipay.com",
+        "1688.com",
+        "gmail.com",
+        "google.com",
+        "nvidia.com",
+        "nvidiagrid.net"
       ],
       "resourceTypes": [
         "main_frame",
@@ -156,7 +240,7 @@
     }
   },
   {
-    "id": 2,
+    "id": 3,
     "priority": 950,
     "action": {
       "type": "allow"
@@ -173,6 +257,133 @@
         "xmlhttprequest",
         "media",
         "websocket",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1200,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "requestDomains": [
+        "doubleclick.net",
+        "googlesyndication.com",
+        "googleadservices.com",
+        "imasdk.googleapis.com",
+        "googleapis.com"
+      ],
+      "initiatorDomains": [
+        "rpmvip.com",
+        "seehd24.com",
+        "moviekhhd.biz",
+        "moviekhhd.online",
+        "moviekhhd.com",
+        "khfullhd.co",
+        "khanime.co",
+        "filemoon.sx",
+        "filemoon.to",
+        "streamwish.com",
+        "rabbitstream.net",
+        "megacloud.tv",
+        "vidsrc.to",
+        "jwplayer.com",
+        "jwpcdn.com"
+      ],
+      "resourceTypes": [
+        "script",
+        "xmlhttprequest",
+        "sub_frame",
+        "image",
+        "media",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1200,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "requestDomains": [
+        "intellimize.co",
+        "intellimizeio.com"
+      ],
+      "initiatorDomains": [
+        "webflow.com",
+        "website-files.com"
+      ],
+      "resourceTypes": [
+        "script",
+        "xmlhttprequest",
+        "sub_frame",
+        "image",
+        "ping",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 6,
+    "priority": 1200,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "requestDomains": [
+        "akamaihd.net",
+        "fbcdn.net",
+        "fbsbx.com",
+        "cdninstagram.com",
+        "facebook.net",
+        "connect.facebook.net"
+      ],
+      "initiatorDomains": [
+        "facebook.com",
+        "fb.com",
+        "messenger.com",
+        "instagram.com",
+        "meta.com",
+        "threads.net",
+        "whatsapp.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "stylesheet",
+        "script",
+        "image",
+        "font",
+        "object",
+        "xmlhttprequest",
+        "ping",
+        "media",
+        "websocket",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 7,
+    "priority": 1200,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "requestDomains": [
+        "fbcdn.net",
+        "fbsbx.com",
+        "cdninstagram.com",
+        "akamaihd.net"
+      ],
+      "resourceTypes": [
+        "media",
+        "xmlhttprequest",
+        "image",
         "other"
       ]
     }

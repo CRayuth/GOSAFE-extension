@@ -25,13 +25,44 @@
       ) {
         return true;
       }
-      const path = (location.pathname || "").toLowerCase();
-      if (/^\/(login|signin|signup|register|join)\/?$/i.test(path)) {
-        if (host === "facebook.com" || host === "fb.com" || host.endsWith(".facebook.com")) {
+      const path = (location.pathname || "/").toLowerCase().replace(/\/+$/, "") || "/";
+      // Facebook's main login is often just https://web.facebook.com/ (path "/")
+      if (host === "facebook.com" || host === "fb.com" || host.endsWith(".facebook.com")) {
+        if (path === "/" || /^\/(login|signin|signup|register|join)(\/|$)/i.test(path)) {
           return true;
         }
       }
       return false;
+    }
+
+    static isMetaApp() {
+      const h = SiteContext.host();
+      return (
+        h === "facebook.com" ||
+        h.endsWith(".facebook.com") ||
+        h === "fb.com" ||
+        h.endsWith(".fb.com") ||
+        h === "messenger.com" ||
+        h.endsWith(".messenger.com") ||
+        h === "instagram.com" ||
+        h.endsWith(".instagram.com") ||
+        h === "meta.com" ||
+        h.endsWith(".meta.com") ||
+        h === "threads.net" ||
+        h.endsWith(".threads.net") ||
+        h === "whatsapp.com" ||
+        h.endsWith(".whatsapp.com")
+      );
+    }
+
+    static isNvidiaApp() {
+      const h = SiteContext.host();
+      return (
+        h === "nvidia.com" ||
+        h.endsWith(".nvidia.com") ||
+        h === "nvidiagrid.net" ||
+        h.endsWith(".nvidiagrid.net")
+      );
     }
 
     static isQuora() {
@@ -46,6 +77,51 @@
     static isX() {
       const h = SiteContext.host();
       return h === "x.com" || h === "twitter.com" || h.endsWith(".twitter.com");
+    }
+
+    static isLinkedIn() {
+      const h = SiteContext.host();
+      return h === "linkedin.com" || h.endsWith(".linkedin.com");
+    }
+
+    static isInstagram() {
+      const h = SiteContext.host();
+      return h === "instagram.com" || h.endsWith(".instagram.com");
+    }
+
+    static isReddit() {
+      const h = SiteContext.host();
+      return h === "reddit.com" || h.endsWith(".reddit.com");
+    }
+
+    /**
+     * Product UIs that rely on real modal dialogs ("See more", settings, PR reviews).
+     * Never inject blanket dialog-hiding CSS here.
+     */
+    static isDialogSensitive() {
+      const h = SiteContext.host();
+      return (
+        h === "github.com" ||
+        h.endsWith(".github.com") ||
+        h === "github.io" ||
+        h.endsWith(".github.io") ||
+        h === "gitlab.com" ||
+        h.endsWith(".gitlab.com") ||
+        h === "bitbucket.org" ||
+        h.endsWith(".bitbucket.org") ||
+        h === "atlassian.com" ||
+        h.endsWith(".atlassian.com") ||
+        h === "notion.so" ||
+        h.endsWith(".notion.so") ||
+        h === "figma.com" ||
+        h.endsWith(".figma.com") ||
+        h === "linear.app" ||
+        h.endsWith(".linear.app") ||
+        h === "vercel.com" ||
+        h.endsWith(".vercel.com") ||
+        h === "cursor.com" ||
+        h.endsWith(".cursor.com")
+      );
     }
   }
 
@@ -241,7 +317,8 @@
   class StyleInjector {
     static #ID = "adblock-lite-loginwall";
 
-    static css() {
+    /** Always-safe helpers — never target generic [role=dialog]. */
+    static #baseCss() {
       return `
 html.abl-loginwall-open,
 html.abl-loginwall-open body {
@@ -263,8 +340,12 @@ html.abl-loginwall-open body {
   max-height: 0 !important;
   overflow: hidden !important;
 }
+`.trim();
+    }
 
-/* Quora — modal + homepage gate + blur */
+    static #quoraCss() {
+      return `
+/* Quora only — do NOT use bare [role=dialog] (breaks GitHub / product UIs) */
 .signup_login_modal,
 .modal_signup_dialog,
 .NewLoggedOutModalBase,
@@ -273,13 +354,12 @@ html.abl-loginwall-open body {
 [class*="signup_wall" i],
 [class*="SignupWall"],
 div[class*="q-click-wrapper"][class*="Modal"],
-div[role="dialog"][aria-modal="true"],
-form:has(input[type="password"]):has(button),
-div:has(> form input[type="password"]):has(button),
 .qu-modal,
 .ModalWrapper,
 .BaseSignupFormNew,
-div.BaseSignupForm {
+div.BaseSignupForm,
+form:has(input[type="password"]):has(button),
+div:has(> form input[type="password"]):has(button) {
   display: none !important;
 }
 body.signup_wall_prevent_scroll,
@@ -297,33 +377,57 @@ html[class*="signup_wall"] {
   filter: none !important;
   -webkit-filter: none !important;
 }
+`.trim();
+    }
 
-/* Facebook */
+    static #facebookCss() {
+      // Only hide overlay/CTA login walls — never the main Facebook login page form.
+      return `
 div[data-testid="cookie-policy-manage-dialog"],
 #login_popup_cta_form,
-div[data-testid="royal_login_form"],
-div[role="dialog"]:has(input[name="email"]):has(input[name="pass"]) {
+div[role="dialog"][aria-label*="Log in" i]:has(input[name="email"]):has(input[name="pass"]),
+div[role="dialog"]:has(input[name="email"]):has(input[name="pass"]):not(:has(#email)):not(form) {
   display: none !important;
 }
+`.trim();
+    }
 
-/* X */
+    static #xCss() {
+      return `
 div[data-testid="sheetDialog"]:has(a[href*="signup"]),
 div[data-testid="mask"],
 div[data-testid="bottomBar"] {
   display: none !important;
 }
+`.trim();
+    }
 
-/* LinkedIn / Instagram / Reddit */
+    static #socialWallCss() {
+      return `
 div.authwall-join-form,
 div.authentication-outlet,
 section.join-form,
 div[class*="join-wall"],
-div[role="dialog"]:has(input[name="username"]),
+div[role="dialog"]:has(input[name="username"]):has(input[type="password"]),
 div.XPromoPopup,
 div[class*="PremiumModal"] {
   display: none !important;
 }
 `.trim();
+    }
+
+    static css() {
+      if (SiteContext.isDialogSensitive()) {
+        return StyleInjector.#baseCss();
+      }
+      const parts = [StyleInjector.#baseCss()];
+      if (SiteContext.isQuora()) parts.push(StyleInjector.#quoraCss());
+      if (SiteContext.isFacebook()) parts.push(StyleInjector.#facebookCss());
+      if (SiteContext.isX()) parts.push(StyleInjector.#xCss());
+      if (SiteContext.isLinkedIn() || SiteContext.isInstagram() || SiteContext.isReddit()) {
+        parts.push(StyleInjector.#socialWallCss());
+      }
+      return parts.join("\n");
     }
 
     static inject() {
@@ -442,6 +546,7 @@ div[class*="PremiumModal"] {
 
     static sweep() {
       if (!FeatureGate.on() || SiteContext.isAuthDestination()) return 0;
+      if (SiteContext.isDialogSensitive()) return 0;
       let n = 0;
 
       if (SiteContext.isQuora()) {
@@ -474,6 +579,10 @@ div[class*="PremiumModal"] {
     start() {
       if (SiteContext.isAuthDestination()) return;
       if (!FeatureGate.on()) return;
+      // GitHub / IDE / design tools — leave real dialogs alone
+      if (SiteContext.isDialogSensitive()) return;
+      // Meta / NVIDIA SPAs — loginwall CSS + overlay sweeps corrupt buttons
+      if (SiteContext.isMetaApp() || SiteContext.isNvidiaApp()) return;
 
       // Quora guest mode — must run before other logic
       if (QuoraBypass.ensureShareParam()) return;

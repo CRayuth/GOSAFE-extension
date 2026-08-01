@@ -84,6 +84,23 @@
         </label>
       </section>
 
+      <section class="card">
+        <h2>NVIDIA AI</h2>
+        <p class="hint">
+          Optional. Powers Quiz Assist (Kahoot hints) and one-line safety tips on serious alerts.
+          Leave blank to disable AI features.
+        </p>
+        <label class="field">
+          <span>NVIDIA API key</span>
+          <input id="aiApiKey" type="password" placeholder="nvapi-…" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="row-actions">
+          <button type="button" class="btn" id="aiSaveKey">Save key</button>
+          <button type="button" class="btn ghost" id="aiClearKey">Clear</button>
+          <small id="aiKeyStatus" class="hint"></small>
+        </div>
+      </section>
+
       <p class="footnote">
         Inspired by
         <a href="https://github.com/tarampampam/random-user-agent" target="_blank" rel="noreferrer"

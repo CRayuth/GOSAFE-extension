@@ -219,6 +219,20 @@ body {
   opacity: 0.9;
 }
 
+.btn.ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .checks {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

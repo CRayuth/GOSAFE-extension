@@ -129,11 +129,42 @@
       ]) {
         input.addEventListener("change", () => this.persist(true));
       }
+
+      this.aiApiKey = document.getElementById("aiApiKey");
+      this.aiSaveKey = document.getElementById("aiSaveKey");
+      this.aiClearKey = document.getElementById("aiClearKey");
+      this.aiKeyStatus = document.getElementById("aiKeyStatus");
+
+      this.aiSaveKey?.addEventListener("click", async () => {
+        const key = String(this.aiApiKey?.value || "").trim();
+        if (!key) return;
+        await this.send("setAiSettings", { apiKey: key, enabled: true });
+        if (this.aiApiKey) this.aiApiKey.value = "";
+        await this.refreshAiStatus();
+      });
+      this.aiClearKey?.addEventListener("click", async () => {
+        await this.send("setAiSettings", { clearKey: true, apiKey: "", enabled: false });
+        if (this.aiApiKey) this.aiApiKey.value = "";
+        await this.refreshAiStatus();
+      });
+    }
+
+    async refreshAiStatus() {
+      if (!this.aiKeyStatus) return;
+      try {
+        const ai = await this.send("getAiSettings");
+        this.aiKeyStatus.textContent = ai?.hasKey
+          ? `On · quiz & tips use ${ai.model || "glm"}`
+          : "Off — no key saved";
+      } catch {
+        this.aiKeyStatus.textContent = "";
+      }
     }
 
     async start() {
       this.bind();
       const data = await this.refresh();
+      await this.refreshAiStatus();
       if (!data?.uaSettings?.current) {
         await this.persist(true);
       }
