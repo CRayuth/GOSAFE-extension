@@ -1394,6 +1394,7 @@
               "smc1",
               "smc2",
               "smc5",
+              "smclient",
               "smid",
               "SmRcid",
               "sms_click",
