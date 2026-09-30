@@ -794,6 +794,8 @@
               "i6",
               "i_cid",
               "iasid",
+              "ic_campaignid",
+              "ic_source",
               "ici",
               "icid",
               "iclid",
